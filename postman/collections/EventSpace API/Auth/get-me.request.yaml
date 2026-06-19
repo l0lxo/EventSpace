@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Me
+method: GET
+url: '{{baseUrl}}/api/auth/me'
+order: 3000
