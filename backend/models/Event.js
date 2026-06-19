@@ -174,23 +174,22 @@ const eventSchema = new mongoose.Schema(
 // Auto-calculate reviewDeadline ("the following Wednesday") whenever a
 // new event is created, so the admin dashboard can sort/highlight by it
 // without recomputing on every request.
-eventSchema.pre("save", function (next) {
+eventSchema.pre('save', function () {
   if (this.isNew && !this.reviewDeadline) {
     const createdAt = this.createdDate || new Date();
     const dayOfWeek = createdAt.getDay(); // 0 = Sunday, 3 = Wednesday
-
+ 
     // Days until the end of THIS week (Saturday), then forward to next Wed.
     // Rule: events submitted during the week must be reviewed by the
     // FOLLOWING Wednesday — i.e. next week's Wednesday, not this week's.
     const daysUntilNextWednesday = ((3 - dayOfWeek + 7) % 7) + 7;
-
+ 
     const deadline = new Date(createdAt);
     deadline.setDate(createdAt.getDate() + daysUntilNextWednesday);
     deadline.setHours(23, 59, 59, 999);
-
+ 
     this.reviewDeadline = deadline;
   }
-  next();
 });
 
 eventSchema.virtual("seatsRemaining").get(function () {
