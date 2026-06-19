@@ -27,9 +27,24 @@ const sendEventCancelledEmail = async (studentEmail, eventTitle) => {
   console.log(`[EMAIL STUB] Would send "event cancelled" email to ${studentEmail} for "${eventTitle}"`);
 };
 
+const sendBookingConfirmedEmail = async (studentEmail, eventTitle, eventDate, eventTime, location) => {
+  console.log(`[EMAIL STUB] Would send "booking confirmed" email to ${studentEmail} for "${eventTitle}" on ${eventDate} at ${eventTime}, ${location}`);
+};
+
+const sendBookingCancelledEmail = async (studentEmail, eventTitle) => {
+  console.log(`[EMAIL STUB] Would send "booking cancelled" email to ${studentEmail} for "${eventTitle}"`);
+};
+
+const sendCapacityFullEmail = async (organizerEmail, eventTitle) => {
+  console.log(`[EMAIL STUB] Would send "capacity full" email to ${organizerEmail} for "${eventTitle}"`);
+};
+
 module.exports = {
   sendEventApprovedEmail,
   sendEventRejectedEmail,
   sendModificationRequestedEmail,
   sendEventCancelledEmail,
+  sendBookingConfirmedEmail,
+  sendBookingCancelledEmail,
+  sendCapacityFullEmail,
 };

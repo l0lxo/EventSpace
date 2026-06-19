@@ -30,7 +30,7 @@ const { Server } = require('socket.io');
 // We'll uncomment them as we build each file — for now only auth exists.
 const authRoutes = require('./routes/auth');
 const eventRoutes = require('./routes/events');
-// const bookingRoutes      = require('./routes/bookings');
+const bookingRoutes = require('./routes/bookings');
 // const adminRoutes        = require('./routes/admin');
 // const notificationRoutes = require('./routes/notifications');
 
@@ -142,7 +142,7 @@ app.get('/', (req, res) => {
 // e.g. a route defined as router.post('/login') becomes POST /api/auth/login
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/events', eventRoutes);
-// app.use('/api/bookings',      bookingRoutes);
+app.use('/api/bookings', bookingRoutes);
 // app.use('/api/admin',         adminRoutes);
 // app.use('/api/notifications', notificationRoutes);
 
