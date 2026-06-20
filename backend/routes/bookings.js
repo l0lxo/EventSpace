@@ -35,6 +35,7 @@ const { Parser: CsvParser } = require('json2csv');
 const Booking = require('../models/Booking');
 const Event = require('../models/Event');
 const { protect, authorize } = require('../middleware/auth');
+const notifyUser = require('../utils/notify');
 const {
   sendBookingConfirmedEmail,
   sendBookingCancelledEmail,
@@ -161,6 +162,7 @@ router.post('/', protect, authorize('student'), async (req, res) => {
 
     // ─── Emails — wrapped independently so a failure here never undoes
     // the booking that already succeeded ───────────────────────────────────
+    let organizer = null;
     try {
       await sendBookingConfirmedEmail(
         req.user.email,
@@ -172,13 +174,32 @@ router.post('/', protect, authorize('student'), async (req, res) => {
 
       // If this booking just filled the event to capacity, alert the organizer
       if (seatsRemaining === 0) {
-        const organizer = await require('../models/User').findById(updatedEvent.createdBy);
+        organizer = await require('../models/User').findById(updatedEvent.createdBy);
         if (organizer) {
           await sendCapacityFullEmail(organizer.email, updatedEvent.title);
         }
       }
     } catch (emailErr) {
       console.error('Failed to send booking emails:', emailErr);
+    }
+
+    // ─── In-app notifications ────────────────────────────────────────────
+    // Mirrors the emails above: a persistent Notification document plus an
+    // instant push if the recipient is currently connected.
+    await notifyUser(io, {
+      userId: req.user._id,
+      message: `Your booking for "${updatedEvent.title}" is confirmed.`,
+      type: 'booking_confirmed',
+      relatedEvent: updatedEvent._id,
+    });
+
+    if (seatsRemaining === 0 && organizer) {
+      await notifyUser(io, {
+        userId: organizer._id,
+        message: `"${updatedEvent.title}" has reached full capacity.`,
+        type: 'capacity_full',
+        relatedEvent: updatedEvent._id,
+      });
     }
 
     res.status(201).json({
@@ -251,6 +272,14 @@ router.delete('/:id', protect, authorize('student'), async (req, res) => {
     } catch (emailErr) {
       console.error('Failed to send cancellation email:', emailErr);
     }
+
+    // In-app notification — same pattern as booking confirmation above
+    await notifyUser(io, {
+      userId: req.user._id,
+      message: `Your booking for "${booking.event.title}" has been cancelled.`,
+      type: 'booking_cancelled',
+      relatedEvent: booking.event._id,
+    });
 
     res.status(200).json({
       message: 'Booking cancelled successfully',

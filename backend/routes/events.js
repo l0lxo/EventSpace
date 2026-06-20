@@ -20,6 +20,7 @@ const { body, query, validationResult } = require('express-validator');
 const Event = require('../models/Event');
 const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
+const notifyUser = require('../utils/notify');
 const {
   sendEventApprovedEmail,
   sendEventRejectedEmail,
@@ -438,6 +439,27 @@ router.patch('/:id/review', protect, authorize('admin'), reviewValidation, async
     io.to(`room:${event._id}`).emit('event_status_changed', {
       eventId: event._id,
       status: event.status,
+    });
+
+    // Create a persistent Notification document for the organizer, and
+    // push it instantly if they're connected (their personal user:room,
+    // joined automatically in socket/index.js on connection).
+    const notificationMessages = {
+      approved: `Your event "${event.title}" has been approved.`,
+      rejected: `Your event "${event.title}" was not approved. Feedback: ${feedback}`,
+      modification_requested: `Changes were requested for your event "${event.title}". Feedback: ${feedback}`,
+    };
+    const notificationTypes = {
+      approved: 'event_approved',
+      rejected: 'event_rejected',
+      modification_requested: 'modification_requested',
+    };
+
+    await notifyUser(io, {
+      userId: event.createdBy._id,
+      message: notificationMessages[decision],
+      type: notificationTypes[decision],
+      relatedEvent: event._id,
     });
 
     res.status(200).json({ event: formatEvent(event) });

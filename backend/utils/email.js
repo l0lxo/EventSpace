@@ -1,42 +1,213 @@
 /**
- * utils/email.js — PLACEHOLDER
+ * utils/email.js — REAL implementation, replacing the earlier console.log stubs.
  *
- * This file will be fully built out in the Nodemailer phase. For now it
- * exports functions with the correct names and signatures so other route
- * files (like events.js) can import and call them without errors.
+ * Every function here has the EXACT same name and parameter signature as
+ * the placeholder version. This matters: routes/events.js and
+ * routes/bookings.js already call these functions and don't need to
+ * change at all — only what happens INSIDE each function changed, from
+ * a console.log to an actual sendEmail() call.
  *
- * Each function currently just logs to the console instead of sending a
- * real email. Once we build the real Nodemailer transporter, we'll replace
- * the body of each function — nothing calling these functions will need
- * to change.
+ * Each function: builds a small HTML snippet specific to that email,
+ * wraps it in the shared layout (utils/emailTemplates/layout.js), and
+ * sends it via the configured transporter (config/mailer.js).
+ *
+ * date-fns is used for human-readable date formatting (e.g. "Saturday,
+ * July 20, 2026" instead of a raw ISO string) — already a dependency on
+ * your frontend, and worth adding here too: npm install date-fns
  */
 
+const { format } = require('date-fns');
+const sendEmail = require('../config/mailer');
+const wrapEmail = require('./emailTemplates/layout');
+
+// ─── Shared button styling, reused across templates ──────────────────────
+const button = (text, url) => `
+  <a href="${url}" style="display:inline-block; background-color:#003366; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:6px; font-size:14px; font-weight:bold; margin-top:16px;">
+    ${text}
+  </a>
+`;
+
+const FRONTEND_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+
+// ════════════════════════════════════════════════════════════════════════════
+// sendEventApprovedEmail — to organizer, when admin approves their event
+// ════════════════════════════════════════════════════════════════════════════
 const sendEventApprovedEmail = async (organizerEmail, eventTitle) => {
-  console.log(`[EMAIL STUB] Would send "event approved" email to ${organizerEmail} for "${eventTitle}"`);
+  const html = wrapEmail(`
+    <h2 style="color:#1a7f37; margin-top:0;">Your event has been approved</h2>
+    <p style="font-size:15px; color:#333333; line-height:1.5;">
+      Good news — <strong>"${eventTitle}"</strong> has been reviewed and approved.
+      It is now visible to students and open for booking.
+    </p>
+    ${button('View Your Event', `${FRONTEND_URL}/organizer/events`)}
+  `);
+
+  await sendEmail(organizerEmail, `Approved: ${eventTitle}`, html);
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// sendEventRejectedEmail — to organizer, when admin rejects their event
+// ════════════════════════════════════════════════════════════════════════════
 const sendEventRejectedEmail = async (organizerEmail, eventTitle, feedback) => {
-  console.log(`[EMAIL STUB] Would send "event rejected" email to ${organizerEmail} for "${eventTitle}". Feedback: ${feedback}`);
+  const html = wrapEmail(`
+    <h2 style="color:#cf222e; margin-top:0;">Your event was not approved</h2>
+    <p style="font-size:15px; color:#333333; line-height:1.5;">
+      <strong>"${eventTitle}"</strong> was reviewed and was not approved at this time.
+    </p>
+    <div style="background-color:#fff1f0; border-left:4px solid #cf222e; padding:12px 16px; margin:16px 0;">
+      <p style="margin:0; font-size:14px; color:#5c1a1a;"><strong>Administrator feedback:</strong></p>
+      <p style="margin:8px 0 0; font-size:14px; color:#5c1a1a;">${feedback}</p>
+    </div>
+    <p style="font-size:14px; color:#333333; line-height:1.5;">
+      You're welcome to submit a new event addressing the feedback above.
+    </p>
+    ${button('Submit a New Event', `${FRONTEND_URL}/organizer/create-event`)}
+  `);
+
+  await sendEmail(organizerEmail, `Update on: ${eventTitle}`, html);
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// sendModificationRequestedEmail — to organizer, when admin asks for changes
+// ════════════════════════════════════════════════════════════════════════════
 const sendModificationRequestedEmail = async (organizerEmail, eventTitle, feedback) => {
-  console.log(`[EMAIL STUB] Would send "modification requested" email to ${organizerEmail} for "${eventTitle}". Feedback: ${feedback}`);
+  const html = wrapEmail(`
+    <h2 style="color:#9a6700; margin-top:0;">Changes requested for your event</h2>
+    <p style="font-size:15px; color:#333333; line-height:1.5;">
+      The administrator has requested some changes before <strong>"${eventTitle}"</strong>
+      can be approved.
+    </p>
+    <div style="background-color:#fff8e6; border-left:4px solid #9a6700; padding:12px 16px; margin:16px 0;">
+      <p style="margin:0; font-size:14px; color:#5c4400;"><strong>Requested changes:</strong></p>
+      <p style="margin:8px 0 0; font-size:14px; color:#5c4400;">${feedback}</p>
+    </div>
+    <p style="font-size:14px; color:#333333; line-height:1.5;">
+      Edit your event to reflect this feedback — it will automatically be
+      resubmitted for review.
+    </p>
+    ${button('Edit Your Event', `${FRONTEND_URL}/organizer/events`)}
+  `);
+
+  await sendEmail(organizerEmail, `Changes requested: ${eventTitle}`, html);
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// sendEventCancelledEmail — to a student, when an event they booked is cancelled
+// ════════════════════════════════════════════════════════════════════════════
 const sendEventCancelledEmail = async (studentEmail, eventTitle) => {
-  console.log(`[EMAIL STUB] Would send "event cancelled" email to ${studentEmail} for "${eventTitle}"`);
+  const html = wrapEmail(`
+    <h2 style="color:#cf222e; margin-top:0;">Event cancelled</h2>
+    <p style="font-size:15px; color:#333333; line-height:1.5;">
+      We're sorry to let you know that <strong>"${eventTitle}"</strong> has been
+      cancelled by the organizer. Any booking you held for this event has
+      been automatically cancelled — no action is needed on your part.
+    </p>
+    ${button('Browse Other Events', `${FRONTEND_URL}/events`)}
+  `);
+
+  await sendEmail(studentEmail, `Cancelled: ${eventTitle}`, html);
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// sendBookingConfirmedEmail — to student, right after they book a seat
+// ════════════════════════════════════════════════════════════════════════════
 const sendBookingConfirmedEmail = async (studentEmail, eventTitle, eventDate, eventTime, location) => {
-  console.log(`[EMAIL STUB] Would send "booking confirmed" email to ${studentEmail} for "${eventTitle}" on ${eventDate} at ${eventTime}, ${location}`);
+  // date-fns format() turns a raw Date into something readable. If eventDate
+  // somehow arrives as a string instead of a Date object, `new Date(...)`
+  // normalizes it first — defensive, since this value travels through
+  // Mongoose -> route handler -> here.
+  const formattedDate = format(new Date(eventDate), 'EEEE, MMMM d, yyyy');
+
+  const html = wrapEmail(`
+    <h2 style="color:#1a7f37; margin-top:0;">Booking confirmed</h2>
+    <p style="font-size:15px; color:#333333; line-height:1.5;">
+      You're booked for <strong>"${eventTitle}"</strong>. Here are the details:
+    </p>
+    <table style="width:100%; margin:16px 0; font-size:14px; color:#333333;">
+      <tr>
+        <td style="padding:6px 0; width:90px; color:#666666;">Date</td>
+        <td style="padding:6px 0;"><strong>${formattedDate}</strong></td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0; color:#666666;">Time</td>
+        <td style="padding:6px 0;"><strong>${eventTime}</strong></td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0; color:#666666;">Location</td>
+        <td style="padding:6px 0;"><strong>${location}</strong></td>
+      </tr>
+    </table>
+    <p style="font-size:14px; color:#333333; line-height:1.5;">
+      We'll send you a reminder 24 hours before the event. You can cancel
+      your booking any time from your booking history, subject to the
+      cancellation window.
+    </p>
+    ${button('View My Bookings', `${FRONTEND_URL}/bookings`)}
+  `);
+
+  await sendEmail(studentEmail, `Booking confirmed: ${eventTitle}`, html);
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// sendBookingCancelledEmail — to student, after they cancel their own booking
+// ════════════════════════════════════════════════════════════════════════════
 const sendBookingCancelledEmail = async (studentEmail, eventTitle) => {
-  console.log(`[EMAIL STUB] Would send "booking cancelled" email to ${studentEmail} for "${eventTitle}"`);
+  const html = wrapEmail(`
+    <h2 style="color:#333333; margin-top:0;">Booking cancelled</h2>
+    <p style="font-size:15px; color:#333333; line-height:1.5;">
+      Your booking for <strong>"${eventTitle}"</strong> has been cancelled
+      as requested. Your seat has been released back to other students.
+    </p>
+    ${button('Browse Other Events', `${FRONTEND_URL}/events`)}
+  `);
+
+  await sendEmail(studentEmail, `Booking cancelled: ${eventTitle}`, html);
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// sendCapacityFullEmail — to organizer, the moment their event hits capacity
+// ════════════════════════════════════════════════════════════════════════════
 const sendCapacityFullEmail = async (organizerEmail, eventTitle) => {
-  console.log(`[EMAIL STUB] Would send "capacity full" email to ${organizerEmail} for "${eventTitle}"`);
+  const html = wrapEmail(`
+    <h2 style="color:#003366; margin-top:0;">Your event is fully booked</h2>
+    <p style="font-size:15px; color:#333333; line-height:1.5;">
+      <strong>"${eventTitle}"</strong> has reached full capacity. No further
+      students will be able to book a seat unless someone cancels.
+    </p>
+    ${button('View Participant List', `${FRONTEND_URL}/organizer/events`)}
+  `);
+
+  await sendEmail(organizerEmail, `Fully booked: ${eventTitle}`, html);
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// sendEventReminderEmail — NEW. Used by the cron job (next phase), not yet
+// called anywhere else. Included now since it shares this file's pattern
+// and the cron job will need it immediately once built.
+// ════════════════════════════════════════════════════════════════════════════
+const sendEventReminderEmail = async (studentEmail, eventTitle, eventTime, location) => {
+  const html = wrapEmail(`
+    <h2 style="color:#003366; margin-top:0;">Reminder: tomorrow</h2>
+    <p style="font-size:15px; color:#333333; line-height:1.5;">
+      This is a reminder that <strong>"${eventTitle}"</strong> is happening
+      in about 24 hours.
+    </p>
+    <table style="width:100%; margin:16px 0; font-size:14px; color:#333333;">
+      <tr>
+        <td style="padding:6px 0; width:90px; color:#666666;">Time</td>
+        <td style="padding:6px 0;"><strong>${eventTime}</strong></td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0; color:#666666;">Location</td>
+        <td style="padding:6px 0;"><strong>${location}</strong></td>
+      </tr>
+    </table>
+    <p style="font-size:14px; color:#333333; line-height:1.5;">
+      We look forward to seeing you there.
+    </p>
+  `);
+
+  await sendEmail(studentEmail, `Reminder: ${eventTitle} is tomorrow`, html);
 };
 
 module.exports = {
@@ -47,4 +218,5 @@ module.exports = {
   sendBookingConfirmedEmail,
   sendBookingCancelledEmail,
   sendCapacityFullEmail,
+  sendEventReminderEmail,
 };

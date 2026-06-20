@@ -23,7 +23,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { createServer } = require('http');
-const { Server } = require('socket.io');
+const initSocket = require('./socket');
+const registerReminderCron = require('./cron/reminderJob');
 
 // ─── 3. Route imports ────────────────────────────────────────────────────────
 // Each of these files handles one "section" of the API.
@@ -31,8 +32,8 @@ const { Server } = require('socket.io');
 const authRoutes = require('./routes/auth');
 const eventRoutes = require('./routes/events');
 const bookingRoutes = require('./routes/bookings');
-// const adminRoutes        = require('./routes/admin');
-// const notificationRoutes = require('./routes/notifications');
+const adminRoutes = require('./routes/admin');
+const notificationRoutes = require('./routes/notifications');
 
 // ─── 4. App + HTTP server setup ──────────────────────────────────────────────
 const app = express();
@@ -42,37 +43,13 @@ const app = express();
 const httpServer = createServer(app);
 
 // ─── 5. Socket.io setup ──────────────────────────────────────────────────────
-const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.CLIENT_URL,
-    methods: ['GET', 'POST'],
-  },
-});
+// All connection logic, authentication, and event listeners now live in
+// socket/index.js. This keeps server.js focused on Express wiring only.
+const io = initSocket(httpServer);
 
 // Make `io` available inside route handlers without importing it everywhere.
 // Usage inside any route file: req.app.get('io').emit(...)
 app.set('io', io);
-
-io.on('connection', (socket) => {
-  console.log(`Socket connected: ${socket.id}`);
-
-  // Student opens an event detail page → subscribe them to that event's room.
-  // Any server emit to `room:${eventId}` will reach only clients in that room.
-  socket.on('join_event_room', ({ eventId }) => {
-    socket.join(`room:${eventId}`);
-    console.log(`Socket ${socket.id} joined room:${eventId}`);
-  });
-
-  // Student navigates away from the event page → unsubscribe.
-  socket.on('leave_event_room', ({ eventId }) => {
-    socket.leave(`room:${eventId}`);
-    console.log(`Socket ${socket.id} left room:${eventId}`);
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`Socket disconnected: ${socket.id}`);
-  });
-});
 
 // ─── 6. Security middleware ───────────────────────────────────────────────────
 // helmet() sets ~15 HTTP security headers automatically (prevents clickjacking,
@@ -143,8 +120,8 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/bookings', bookingRoutes);
-// app.use('/api/admin',         adminRoutes);
-// app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // ─── 12. 404 handler ─────────────────────────────────────────────────────────
 // Catches any request that didn't match a route above.
@@ -199,6 +176,12 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log('MongoDB connected successfully');
+
+    // Only start the reminder cron job once we know the database is up —
+    // it queries Events and Bookings every hour, so there's no point
+    // scheduling it before a connection exists.
+    registerReminderCron(io);
+
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
       console.log(`Health check: http://localhost:${PORT}/`);

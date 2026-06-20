@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema(
   {
@@ -8,13 +8,13 @@ const bookingSchema = new mongoose.Schema(
     // "studentID" field on the Booking collection is satisfied by this ref.
     student: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       required: true,
     },
 
     event: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Event",
+      ref: 'Event',
       required: true,
     },
 
@@ -26,10 +26,10 @@ const bookingSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ["confirmed", "cancelled"],
-        message: "{VALUE} is not a valid booking status",
+        values: ['confirmed', 'cancelled'],
+        message: '{VALUE} is not a valid booking status',
       },
-      default: "confirmed",
+      default: 'confirmed',
     },
 
     // Set when status changes to 'cancelled', so the cancellation-window
@@ -38,10 +38,19 @@ const bookingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Tracks whether the 24-hour reminder email has already been sent for
+    // this booking. Without this flag, the cron job (which runs every
+    // hour) would re-send the same reminder repeatedly throughout the
+    // entire 24-hour window leading up to the event, instead of exactly once.
+    reminderSent: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 // Prevents the same student from booking the same event twice while a
@@ -53,14 +62,18 @@ bookingSchema.index(
   { student: 1, event: 1, status: 1 },
   {
     unique: true,
-    partialFilterExpression: { status: "confirmed" },
-  },
+    partialFilterExpression: { status: 'confirmed' },
+  }
 );
 
 bookingSchema.index({ event: 1 });
 bookingSchema.index({ student: 1 });
 
-bookingSchema.set("toJSON", {
+// Supports the reminder cron job's query: "confirmed bookings that haven't
+// had a reminder sent yet" — run every hour, forever, so this needs to be fast.
+bookingSchema.index({ status: 1, reminderSent: 1 });
+
+bookingSchema.set('toJSON', {
   virtuals: true,
   transform: (doc, ret) => {
     ret.id = ret._id;
@@ -69,4 +82,4 @@ bookingSchema.set("toJSON", {
   },
 });
 
-module.exports = mongoose.model("Booking", bookingSchema);
+module.exports = mongoose.model('Booking', bookingSchema);
