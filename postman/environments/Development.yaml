@@ -1,0 +1,8 @@
+name: Development
+variables:
+  - key: baseUrl
+    value: 'http://localhost:5001'
+    type: default
+  - key: token
+    value: ''
+    type: secret
