@@ -1,1 +1,91 @@
+/**
+ * src/index.css
+ *
+ * This file defines the entire visual identity of the app in one place —
+ * every color, font, and spacing decision other components use should
+ * trace back to a variable defined here, not a one-off hex code typed
+ * into a component file.
+ *
+ * Tailwind v4 reads custom theme tokens directly from CSS using @theme,
+ * instead of the old tailwind.config.js approach. Once defined here, you
+ * use them in any component as a Tailwind class: bg-bg, text-text,
+ * text-accent, font-display, etc.
+ */
+
 @import "tailwindcss";
+
+/* ─── Fonts ──────────────────────────────────────────────────────────────
+   Loaded from Google Fonts. Source Serif 4 for headings (institutional,
+   university-press feel), Inter for everything else (forms, tables, nav),
+   IBM Plex Mono for tabular/numeric data where alignment matters.
+*/
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@theme {
+  /* ─── Color tokens ───────────────────────────────────────────────────
+     Black text on white background, ONE institutional accent (Strathmore
+     navy), and three semantic colors used ONLY for their specific
+     meaning (success/danger/warning) — never decoratively.
+  */
+  --color-bg: #FFFFFF;
+  --color-surface: #F7F7F7;
+  --color-text: #111111;
+  --color-text-muted: #666666;
+  --color-border: #E0E0E0;
+
+  --color-accent: #003366;
+  --color-accent-hover: #002347;
+
+  --color-success: #1A7F37;
+  --color-success-bg: #F0F7F1;
+  --color-danger: #CF222E;
+  --color-danger-bg: #FDF1F1;
+  --color-warning: #9A6700;
+  --color-warning-bg: #FBF4E4;
+
+  /* ─── Font tokens ────────────────────────────────────────────────────
+     Three distinct roles, used consistently — display face only for
+     headings, body face for everything else, mono only for tabular data.
+  */
+  --font-display: 'Source Serif 4', Georgia, serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  /* ─── Radius — capped low on purpose ─────────────────────────────────
+     Heavy border-radius (12px+) on every element is one of the strongest
+     visual tells of generated UI. Capping at 6px keeps things crisp and
+     institutional rather than soft/app-like.
+  */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+}
+
+/* ─── Base element defaults ────────────────────────────────────────────── */
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Visible keyboard focus — required for accessibility, also just good
+   practice. Never remove focus outlines without replacing them with
+   something equally visible. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
