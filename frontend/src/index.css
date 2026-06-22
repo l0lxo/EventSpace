@@ -12,14 +12,17 @@
  * text-accent, font-display, etc.
  */
 
-@import "tailwindcss";
-
 /* ─── Fonts ──────────────────────────────────────────────────────────────
    Loaded from Google Fonts. Source Serif 4 for headings (institutional,
    university-press feel), Inter for everything else (forms, tables, nav),
    IBM Plex Mono for tabular/numeric data where alignment matters.
+   Must precede @import "tailwindcss" below — once Tailwind's import
+   expands into actual CSS rules, PostCSS treats any @import after it as
+   coming after "other statements", which is invalid.
 */
 @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+@import "tailwindcss";
 
 @theme {
   /* ─── Color tokens ───────────────────────────────────────────────────
