@@ -1,26 +1,7 @@
-/**
- * utils/email.js — REAL implementation, replacing the earlier console.log stubs.
- *
- * Every function here has the EXACT same name and parameter signature as
- * the placeholder version. This matters: routes/events.js and
- * routes/bookings.js already call these functions and don't need to
- * change at all — only what happens INSIDE each function changed, from
- * a console.log to an actual sendEmail() call.
- *
- * Each function: builds a small HTML snippet specific to that email,
- * wraps it in the shared layout (utils/emailTemplates/layout.js), and
- * sends it via the configured transporter (config/mailer.js).
- *
- * date-fns is used for human-readable date formatting (e.g. "Saturday,
- * July 20, 2026" instead of a raw ISO string) — already a dependency on
- * your frontend, and worth adding here too: npm install date-fns
- */
-
 const { format } = require('date-fns');
 const sendEmail = require('../config/mailer');
 const wrapEmail = require('./emailTemplates/layout');
 
-// ─── Shared button styling, reused across templates ──────────────────────
 const button = (text, url) => `
   <a href="${url}" style="display:inline-block; background-color:#003366; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:6px; font-size:14px; font-weight:bold; margin-top:16px;">
     ${text}
@@ -29,9 +10,6 @@ const button = (text, url) => `
 
 const FRONTEND_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
-// ════════════════════════════════════════════════════════════════════════════
-// sendEventApprovedEmail — to organizer, when admin approves their event
-// ════════════════════════════════════════════════════════════════════════════
 const sendEventApprovedEmail = async (organizerEmail, eventTitle) => {
   const html = wrapEmail(`
     <h2 style="color:#1a7f37; margin-top:0;">Your event has been approved</h2>
@@ -45,9 +23,6 @@ const sendEventApprovedEmail = async (organizerEmail, eventTitle) => {
   await sendEmail(organizerEmail, `Approved: ${eventTitle}`, html);
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// sendEventRejectedEmail — to organizer, when admin rejects their event
-// ════════════════════════════════════════════════════════════════════════════
 const sendEventRejectedEmail = async (organizerEmail, eventTitle, feedback) => {
   const html = wrapEmail(`
     <h2 style="color:#cf222e; margin-top:0;">Your event was not approved</h2>
@@ -67,9 +42,6 @@ const sendEventRejectedEmail = async (organizerEmail, eventTitle, feedback) => {
   await sendEmail(organizerEmail, `Update on: ${eventTitle}`, html);
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// sendModificationRequestedEmail — to organizer, when admin asks for changes
-// ════════════════════════════════════════════════════════════════════════════
 const sendModificationRequestedEmail = async (organizerEmail, eventTitle, feedback) => {
   const html = wrapEmail(`
     <h2 style="color:#9a6700; margin-top:0;">Changes requested for your event</h2>
@@ -91,9 +63,6 @@ const sendModificationRequestedEmail = async (organizerEmail, eventTitle, feedba
   await sendEmail(organizerEmail, `Changes requested: ${eventTitle}`, html);
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// sendEventCancelledEmail — to a student, when an event they booked is cancelled
-// ════════════════════════════════════════════════════════════════════════════
 const sendEventCancelledEmail = async (studentEmail, eventTitle) => {
   const html = wrapEmail(`
     <h2 style="color:#cf222e; margin-top:0;">Event cancelled</h2>
@@ -108,14 +77,7 @@ const sendEventCancelledEmail = async (studentEmail, eventTitle) => {
   await sendEmail(studentEmail, `Cancelled: ${eventTitle}`, html);
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// sendBookingConfirmedEmail — to student, right after they book a seat
-// ════════════════════════════════════════════════════════════════════════════
 const sendBookingConfirmedEmail = async (studentEmail, eventTitle, eventDate, eventTime, location) => {
-  // date-fns format() turns a raw Date into something readable. If eventDate
-  // somehow arrives as a string instead of a Date object, `new Date(...)`
-  // normalizes it first — defensive, since this value travels through
-  // Mongoose -> route handler -> here.
   const formattedDate = format(new Date(eventDate), 'EEEE, MMMM d, yyyy');
 
   const html = wrapEmail(`
@@ -148,9 +110,6 @@ const sendBookingConfirmedEmail = async (studentEmail, eventTitle, eventDate, ev
   await sendEmail(studentEmail, `Booking confirmed: ${eventTitle}`, html);
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// sendBookingCancelledEmail — to student, after they cancel their own booking
-// ════════════════════════════════════════════════════════════════════════════
 const sendBookingCancelledEmail = async (studentEmail, eventTitle) => {
   const html = wrapEmail(`
     <h2 style="color:#333333; margin-top:0;">Booking cancelled</h2>
@@ -164,9 +123,6 @@ const sendBookingCancelledEmail = async (studentEmail, eventTitle) => {
   await sendEmail(studentEmail, `Booking cancelled: ${eventTitle}`, html);
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// sendCapacityFullEmail — to organizer, the moment their event hits capacity
-// ════════════════════════════════════════════════════════════════════════════
 const sendCapacityFullEmail = async (organizerEmail, eventTitle) => {
   const html = wrapEmail(`
     <h2 style="color:#003366; margin-top:0;">Your event is fully booked</h2>
@@ -180,11 +136,6 @@ const sendCapacityFullEmail = async (organizerEmail, eventTitle) => {
   await sendEmail(organizerEmail, `Fully booked: ${eventTitle}`, html);
 };
 
-// ════════════════════════════════════════════════════════════════════════════
-// sendEventReminderEmail — NEW. Used by the cron job (next phase), not yet
-// called anywhere else. Included now since it shares this file's pattern
-// and the cron job will need it immediately once built.
-// ════════════════════════════════════════════════════════════════════════════
 const sendEventReminderEmail = async (studentEmail, eventTitle, eventTime, location) => {
   const html = wrapEmail(`
     <h2 style="color:#003366; margin-top:0;">Reminder: tomorrow</h2>

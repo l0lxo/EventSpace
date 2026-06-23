@@ -1,14 +1,3 @@
-/**
- * src/context/AuthContext.jsx
- *
- * Single source of truth for "who is logged in" across the app. On mount,
- * if a token is already in localStorage (left over from a previous visit),
- * it calls GET /auth/me to restore the session — this is what makes a
- * page refresh not log the user out. `isLoading` covers that initial
- * restore so ProtectedRoute can wait for it instead of redirecting to
- * /login on every refresh before the check finishes.
- */
-
 import { useEffect, useState } from 'react';
 import api, { getToken, setToken, clearToken } from '../utils/api';
 import { AuthContext } from './auth-context';
@@ -18,6 +7,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // a leftover token means we can restore the session instead of bouncing to /login
     const restoreSession = async () => {
       if (!getToken()) {
         setIsLoading(false);

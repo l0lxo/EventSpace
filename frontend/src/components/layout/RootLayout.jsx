@@ -1,22 +1,13 @@
-/**
- * src/components/layout/RootLayout.jsx
- *
- * Temporary nav shell wrapping every route so the full route tree is
- * actually clickable while pages are still placeholders (Phase 1 goal:
- * prove routing/role-gating works before building real pages). The real
- * navbar (with the notification bell, per PROJECT_HANDOFF.md section 4
- * cross-cutting list) replaces this in a later phase.
- */
-
 import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import NotificationBell from './NotificationBell';
 
 const RootLayout = () => {
   const { currentUser, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-bg">
-      <nav className="border-b border-border px-6 py-3 flex gap-4 items-center text-sm font-body">
+      <nav className="border-b border-border px-4 sm:px-6 py-3 flex flex-wrap gap-x-4 gap-y-2 items-center text-sm font-body">
         <Link to="/" className="text-accent">Browse Events</Link>
         {currentUser?.role === 'student' && (
           <Link to="/my-bookings" className="text-accent">My Bookings</Link>
@@ -38,7 +29,10 @@ const RootLayout = () => {
         <div className="ml-auto flex gap-4 items-center">
           {currentUser ? (
             <>
-              <span className="text-text-muted">{currentUser.name} ({currentUser.role})</span>
+              <NotificationBell />
+              <span className="hidden sm:inline text-text-muted">
+                {currentUser.name} ({currentUser.role})
+              </span>
               <button onClick={logout} className="text-accent">Log out</button>
             </>
           ) : (

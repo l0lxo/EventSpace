@@ -16,9 +16,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      // Enforces @strathmore.edu domain restriction at the schema level.
-      // This is a backstop — the real validation also happens in the
-      // register route via express-validator, but defense in depth matters.
+      // backstop — register route also validates this via express-validator
       match: [
         /^[a-zA-Z0-9._%+-]+@strathmore\.edu$/,
         'Email must be a valid @strathmore.edu address',
@@ -42,16 +40,14 @@ const userSchema = new mongoose.Schema(
       default: 'student',
     },
 
-    // Required only when role === 'student'. Enforced in a pre-validate
-    // hook below rather than a hardcoded `required: true`, since this
-    // field is conditional on role.
+    // required only for students — enforced in the pre-validate hook below
     studentID: {
       type: String,
       trim: true,
       default: null,
     },
 
-    // Required only when role === 'organizer' (e.g. "Strathmore Drama Club")
+    // required only for organizers (e.g. "Strathmore Drama Club")
     organizationName: {
       type: String,
       trim: true,
@@ -74,9 +70,7 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Conditional field requirements based on role.
-// Mongoose doesn't support "required if another field equals X" natively
-// in a clean way, so this hook enforces it before validation runs.
+// mongoose has no clean "required if role === X" built in, so enforce it here
 userSchema.pre('validate', function () {
   if (this.role === 'student' && !this.studentID) {
     this.invalidate('studentID', 'studentID is required for student accounts');

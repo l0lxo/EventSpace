@@ -1,20 +1,3 @@
-/**
- * src/components/shared/Button.jsx
- *
- * Every clickable action button in the app should use this component
- * rather than a raw <button> with one-off Tailwind classes. This is what
- * keeps every button across 20+ pages looking identical — same height,
- * same radius, same hover behavior — instead of drifting apart as the
- * app grows.
- *
- * Usage:
- *   <Button>Save changes</Button>
- *   <Button variant="secondary">Cancel</Button>
- *   <Button variant="danger">Delete</Button>
- *   <Button variant="ghost" size="sm">View</Button>
- *   <Button isLoading>Submitting...</Button>
- */
-
 const VARIANT_STYLES = {
   primary: 'bg-accent text-white border border-accent hover:bg-accent-hover',
   secondary: 'bg-white text-text border border-border hover:bg-surface',

@@ -1,20 +1,3 @@
-/**
- * routes/admin.js
- *
- * Six endpoints, all requiring the 'admin' role:
- *   GET    /api/admin/analytics                  — dashboard summary stats
- *   GET    /api/admin/reports/participation       — per-event participation report
- *   GET    /api/admin/users                       — list/search/filter users
- *   PATCH  /api/admin/users/:id/disable           — toggle a user's disabled status
- *   DELETE /api/admin/users/:id                   — permanently delete a user
- *   PATCH  /api/admin/events/:id/moderate         — flag/unflag/force-cancel an event
- *
- * Every route in this file uses protect + authorize('admin') — there is no
- * route here a non-admin should ever reach.
- *
- * Mounted in server.js as: app.use('/api/admin', adminRoutes)
- */
-
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
@@ -24,19 +7,10 @@ const Event = require('../models/Event');
 const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
 
-// Every single route below requires admin. Applying it once here at the
-// router level means we don't have to repeat `protect, authorize('admin')`
-// on every individual route declaration.
 router.use(protect, authorize('admin'));
 
-// ════════════════════════════════════════════════════════════════════════════
-// GET /api/admin/analytics
-// ════════════════════════════════════════════════════════════════════════════
 router.get('/analytics', async (req, res) => {
   try {
-    // Run independent counts in parallel rather than sequentially —
-    // Promise.all fires all these queries at once and waits for all to
-    // finish, instead of waiting for each one before starting the next.
     const [
       totalEvents,
       totalBookings,
@@ -63,9 +37,6 @@ router.get('/analytics', async (req, res) => {
       User.countDocuments({ role: 'admin' }),
       Event.countDocuments({ status: 'approved', date: { $gte: new Date() } }),
 
-      // Aggregation pipeline: group bookings by the category of the event
-      // they belong to, and count both events and bookings per category.
-      // This is the MongoDB equivalent of a SQL "GROUP BY category".
       Event.aggregate([
         { $match: { status: 'approved' } },
         {
@@ -115,9 +86,7 @@ router.get('/analytics', async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // GET /api/admin/reports/participation
-// ════════════════════════════════════════════════════════════════════════════
 router.get('/reports/participation', async (req, res) => {
   try {
     const { startDate, endDate, category } = req.query;
@@ -132,9 +101,7 @@ router.get('/reports/participation', async (req, res) => {
 
     const events = await Event.find(filter).sort({ date: 1 });
 
-    // For each event, count cancellations separately from currentBookings
-    // (which only reflects CONFIRMED bookings — cancellations need their
-    // own query against the Booking collection).
+    // currentBookings only reflects confirmed bookings, so cancellations need their own query
     const data = await Promise.all(
       events.map(async (event) => {
         const cancellations = await Booking.countDocuments({
@@ -167,9 +134,7 @@ router.get('/reports/participation', async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // GET /api/admin/users
-// ════════════════════════════════════════════════════════════════════════════
 router.get('/users', async (req, res) => {
   try {
     const { role, search, page = 1, limit = 20 } = req.query;
@@ -208,9 +173,7 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // PATCH /api/admin/users/:id/disable
-// ════════════════════════════════════════════════════════════════════════════
 router.patch(
   '/users/:id/disable',
   [body('isDisabled').isBoolean().withMessage('isDisabled must be true or false')],
@@ -250,15 +213,8 @@ router.patch(
   }
 );
 
-// ════════════════════════════════════════════════════════════════════════════
-// DELETE /api/admin/users/:id
-//
-// Business rule (from the open decisions in the API contract): deletion is
-// BLOCKED if the user has any active bookings or — for organizers — any
-// events with existing bookings. This protects booking history integrity.
-// Admins should use disable instead for users with history; delete is only
-// for genuinely empty/unused accounts.
-// ════════════════════════════════════════════════════════════════════════════
+// DELETE /api/admin/users/:id — blocked if the user has active bookings (or, for
+// organizers, events with active bookings); use disable instead for accounts with history
 router.delete('/users/:id', async (req, res) => {
   try {
     const targetUser = await User.findById(req.params.id);
@@ -312,9 +268,7 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // PATCH /api/admin/events/:id/moderate
-// ════════════════════════════════════════════════════════════════════════════
 router.patch(
   '/events/:id/moderate',
   [

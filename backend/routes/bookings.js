@@ -1,33 +1,6 @@
-/**
- * routes/bookings.js
- *
- * Five endpoints covering booking creation, cancellation, history, and
- * the organizer-facing participant list + CSV export.
- *
- * THE HARD PROBLEM THIS FILE SOLVES: race conditions on capacity.
- *
- * Naive approach (DON'T do this):
- *   1. Read event.currentBookings
- *   2. Check if currentBookings < capacity
- *   3. Create the booking
- *   4. Increment event.currentBookings
- *
- * If two students hit "Book" in the same instant on the last available
- * seat, BOTH requests can pass step 2 before either reaches step 4 —
- * because step 1's read happens before either write. Result: capacity 100,
- * but 101 confirmed bookings. This is a classic race condition.
- *
- * THE FIX: use MongoDB's findOneAndUpdate with the capacity check baked
- * directly into the query filter, using the $expr operator. MongoDB
- * guarantees this read-and-write happens as a single atomic operation —
- * no other request can interleave between the check and the increment.
- * If the filter doesn't match (because capacity was already hit by another
- * request a millisecond earlier), the update simply returns null, and we
- * treat that as "sorry, no seats left."
- *
- * Mounted in server.js as: app.use('/api/bookings', bookingRoutes)
- */
-
+// capacity checks use findOneAndUpdate with $expr baked into the filter (see the
+// POST / handler below) rather than read-then-write, since two students booking
+// the last seat at once would otherwise both pass a separate check and overbook it
 const express = require('express');
 const router = express.Router();
 const { Parser: CsvParser } = require('json2csv');
@@ -42,18 +15,10 @@ const {
   sendCapacityFullEmail,
 } = require('../utils/email');
 
-// ─── Config: cancellation window ─────────────────────────────────────────────
-// How many hours before an event starts that cancellation is still allowed.
-// Flagged as an "open decision" in the API contract — set here as a single
-// constant so it's easy to change in one place if the team picks a
-// different number later.
 const CANCELLATION_WINDOW_HOURS = 24;
 
-// ─── Helper: combine an event's date + time into one real Date object ───────
-// The Event schema stores `date` (a Date) and `time` (a "HH:MM" string)
-// separately for display purposes, but we need a single timestamp to
-// compare against "right now" for the cancellation window check and for
-// the reminder cron job later.
+// Event stores date and time as separate fields for display — combine them here
+// for comparisons against "now" (cancellation window, reminder cron)
 const getEventDateTime = (event) => {
   const [hours, minutes] = event.time.split(':').map(Number);
   const dt = new Date(event.date);
@@ -61,12 +26,9 @@ const getEventDateTime = (event) => {
   return dt;
 };
 
-// ─── Helper: format a booking for API responses ──────────────────────────────
 const formatBooking = (booking) => (booking.toJSON ? booking.toJSON() : booking);
 
-// ════════════════════════════════════════════════════════════════════════════
 // POST /api/bookings — Student. Book a seat on an approved event.
-// ════════════════════════════════════════════════════════════════════════════
 router.post('/', protect, authorize('student'), async (req, res) => {
   const { eventId } = req.body;
 
@@ -75,11 +37,8 @@ router.post('/', protect, authorize('student'), async (req, res) => {
   }
 
   try {
-    // Load the event first to run basic eligibility checks (status, timing)
-    // BEFORE attempting the atomic capacity increment. These checks alone
-    // aren't race-condition-safe, but they don't need to be — they're just
-    // here to give clear, specific error messages for the common cases.
-    // The capacity check below is the one that actually has to be atomic.
+    // these eligibility checks aren't race-condition-safe, but they don't need to be —
+    // they just give clear error messages for the common cases; the atomic check is below
     const event = await Event.findById(eventId);
 
     if (!event) {
@@ -94,10 +53,7 @@ router.post('/', protect, authorize('student'), async (req, res) => {
       return res.status(400).json({ message: 'This event has already taken place' });
     }
 
-    // Check for an existing confirmed booking by this student for this event.
-    // The unique compound index on Booking (student + event + status:'confirmed')
-    // backs this up at the database level too, so this is a friendly
-    // pre-check, not the only line of defense.
+    // friendly pre-check — the unique compound index on Booking backs this up at the DB level too
     const existingBooking = await Booking.findOne({
       student: req.user._id,
       event: eventId,
@@ -108,12 +64,8 @@ router.post('/', protect, authorize('student'), async (req, res) => {
       return res.status(409).json({ message: 'You already have a booking for this event' });
     }
 
-    // ─── THE ATOMIC CAPACITY CHECK ────────────────────────────────────────
-    // This single operation finds the event AND increments currentBookings
-    // in one indivisible step, but ONLY if currentBookings < capacity at
-    // the moment MongoDB executes it. If another request already pushed
-    // currentBookings to capacity microseconds earlier, this filter simply
-    // won't match anything, and updatedEvent comes back null.
+    // atomic: finds the event and increments currentBookings in one step, only if
+    // currentBookings < capacity at that exact moment — no other request can interleave
     const updatedEvent = await Event.findOneAndUpdate(
       {
         _id: eventId,
@@ -127,7 +79,6 @@ router.post('/', protect, authorize('student'), async (req, res) => {
       return res.status(409).json({ message: 'This event is at full capacity' });
     }
 
-    // Capacity secured. Now create the actual booking record.
     let booking;
     try {
       booking = await Booking.create({
@@ -136,10 +87,7 @@ router.post('/', protect, authorize('student'), async (req, res) => {
         status: 'confirmed',
       });
     } catch (bookingErr) {
-      // If booking creation fails for any reason (including the rare case
-      // where the unique index catches a duplicate we missed above), we
-      // must roll back the increment we just made — otherwise currentBookings
-      // drifts out of sync with actual confirmed bookings forever.
+      // roll back the increment if booking creation fails, or currentBookings drifts out of sync
       await Event.findByIdAndUpdate(eventId, { $inc: { currentBookings: -1 } });
 
       if (bookingErr.code === 11000) {
@@ -150,9 +98,6 @@ router.post('/', protect, authorize('student'), async (req, res) => {
 
     const seatsRemaining = updatedEvent.capacity - updatedEvent.currentBookings;
 
-    // ─── Real-time update ──────────────────────────────────────────────────
-    // Tell every client currently viewing this event's page that the seat
-    // count just changed, so their UI updates without a page refresh.
     const io = req.app.get('io');
     io.to(`room:${eventId}`).emit('capacity_updated', {
       eventId,
@@ -160,8 +105,7 @@ router.post('/', protect, authorize('student'), async (req, res) => {
       seatsRemaining,
     });
 
-    // ─── Emails — wrapped independently so a failure here never undoes
-    // the booking that already succeeded ───────────────────────────────────
+    // wrapped independently so an email failure never undoes the booking that already succeeded
     let organizer = null;
     try {
       await sendBookingConfirmedEmail(
@@ -183,9 +127,6 @@ router.post('/', protect, authorize('student'), async (req, res) => {
       console.error('Failed to send booking emails:', emailErr);
     }
 
-    // ─── In-app notifications ────────────────────────────────────────────
-    // Mirrors the emails above: a persistent Notification document plus an
-    // instant push if the recipient is currently connected.
     await notifyUser(io, {
       userId: req.user._id,
       message: `Your booking for "${updatedEvent.title}" is confirmed.`,
@@ -215,9 +156,7 @@ router.post('/', protect, authorize('student'), async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // DELETE /api/bookings/:id — Student (own bookings only). Cancel a booking.
-// ════════════════════════════════════════════════════════════════════════════
 router.delete('/:id', protect, authorize('student'), async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id).populate('event');
@@ -248,8 +187,6 @@ router.delete('/:id', protect, authorize('student'), async (req, res) => {
     booking.cancellationDate = new Date();
     await booking.save();
 
-    // Decrement currentBookings — this is a single atomic $inc with a
-    // negative value, so it's safe even with concurrent cancellations.
     const updatedEvent = await Event.findByIdAndUpdate(
       booking.event._id,
       { $inc: { currentBookings: -1 } },
@@ -258,7 +195,6 @@ router.delete('/:id', protect, authorize('student'), async (req, res) => {
 
     const seatsRemaining = updatedEvent.capacity - updatedEvent.currentBookings;
 
-    // Real-time update
     const io = req.app.get('io');
     io.to(`room:${booking.event._id}`).emit('capacity_updated', {
       eventId: booking.event._id,
@@ -266,14 +202,12 @@ router.delete('/:id', protect, authorize('student'), async (req, res) => {
       seatsRemaining,
     });
 
-    // Email confirmation
     try {
       await sendBookingCancelledEmail(req.user.email, booking.event.title);
     } catch (emailErr) {
       console.error('Failed to send cancellation email:', emailErr);
     }
 
-    // In-app notification — same pattern as booking confirmation above
     await notifyUser(io, {
       userId: req.user._id,
       message: `Your booking for "${booking.event.title}" has been cancelled.`,
@@ -294,11 +228,7 @@ router.delete('/:id', protect, authorize('student'), async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // GET /api/bookings/my-bookings — Student. Their own booking history.
-// Must come BEFORE any /:something routes that could collide — there are
-// none here that would, but keeping this near the top for consistency.
-// ════════════════════════════════════════════════════════════════════════════
 router.get('/my-bookings', protect, authorize('student'), async (req, res) => {
   try {
     const { status } = req.query;
@@ -332,10 +262,8 @@ router.get('/my-bookings', protect, authorize('student'), async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // GET /api/bookings/event/:eventId — Organizer (own event) or Admin.
 // Participant list for a specific event.
-// ════════════════════════════════════════════════════════════════════════════
 router.get('/event/:eventId', protect, authorize('organizer', 'admin'), async (req, res) => {
   try {
     const event = await Event.findById(req.params.eventId);
@@ -374,10 +302,8 @@ router.get('/event/:eventId', protect, authorize('organizer', 'admin'), async (r
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // GET /api/bookings/event/:eventId/export — Organizer (own event) or Admin.
 // Same data as above, returned as a downloadable CSV file.
-// ════════════════════════════════════════════════════════════════════════════
 router.get('/event/:eventId/export', protect, authorize('organizer', 'admin'), async (req, res) => {
   try {
     const event = await Event.findById(req.params.eventId);
@@ -405,15 +331,11 @@ router.get('/event/:eventId/export', protect, authorize('organizer', 'admin'), a
       status: b.status,
     }));
 
-    // json2csv converts the array of plain objects above into a raw CSV string.
-    // The fields array controls column order and header names explicitly,
-    // rather than relying on whatever key order the objects happen to have.
     const csvParser = new CsvParser({
       fields: ['studentName', 'studentEmail', 'studentID', 'bookingDate', 'status'],
     });
     const csv = csvParser.parse(rows);
 
-    // Build a filesystem-safe filename from the event title
     const safeFilename = event.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')

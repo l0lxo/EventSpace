@@ -2,10 +2,7 @@ const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema(
   {
-    // Named `student` here (referencing User) rather than `studentID` as a
-    // raw string, since we need a real relational reference for .populate()
-    // when building participant lists and booking history. The spec's
-    // "studentID" field on the Booking collection is satisfied by this ref.
+    // a real ref rather than a raw studentID string, so .populate() works for participant lists
     student: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -39,10 +36,7 @@ const bookingSchema = new mongoose.Schema(
       default: null,
     },
 
-    // Tracks whether the 24-hour reminder email has already been sent for
-    // this booking. Without this flag, the cron job (which runs every
-    // hour) would re-send the same reminder repeatedly throughout the
-    // entire 24-hour window leading up to the event, instead of exactly once.
+    // prevents the hourly reminder cron from re-sending the same email all day
     reminderSent: {
       type: Boolean,
       default: false,
@@ -53,11 +47,7 @@ const bookingSchema = new mongoose.Schema(
   }
 );
 
-// Prevents the same student from booking the same event twice while a
-// 'confirmed' booking already exists. Implemented as a compound index
-// rather than purely application-level logic, so it holds even under
-// concurrent requests (closes the race condition the API route alone
-// can't fully guard against).
+// blocks double-booking even under concurrent requests — app-level checks alone can race
 bookingSchema.index(
   { student: 1, event: 1, status: 1 },
   {
@@ -69,9 +59,7 @@ bookingSchema.index(
 bookingSchema.index({ event: 1 });
 bookingSchema.index({ student: 1 });
 
-// Supports the reminder cron job's query: "confirmed bookings that haven't
-// had a reminder sent yet" — run every hour, forever, so this needs to be fast.
-bookingSchema.index({ status: 1, reminderSent: 1 });
+bookingSchema.index({ status: 1, reminderSent: 1 }); // for the hourly reminder cron query
 
 bookingSchema.set('toJSON', {
   virtuals: true,

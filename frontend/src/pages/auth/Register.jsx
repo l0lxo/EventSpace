@@ -1,11 +1,3 @@
-/**
- * src/pages/auth/Register.jsx
- *
- * Mirrors the validation rules in backend/routes/auth.js (registerValidation)
- * client-side for instant feedback — the backend remains the source of
- * truth and re-validates everything regardless.
- */
-
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, Link } from 'react-router-dom';
@@ -46,7 +38,7 @@ const Register = () => {
   };
 
   return (
-    <div className="flex justify-center p-10">
+    <div className="flex justify-center p-4 sm:p-10">
       <Card className="w-full max-w-sm">
         <h1 className="font-display text-2xl text-text mb-5">Register</h1>
 

@@ -1,12 +1,3 @@
-/**
- * src/pages/auth/Login.jsx
- *
- * On success, returns to wherever ProtectedRoute redirected the user from
- * (state.from, set in ProtectedRoute.jsx) rather than always landing on
- * the home page — so a student hitting a protected link while logged out
- * ends up back on that page after logging in instead of starting over.
- */
-
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
@@ -37,7 +28,7 @@ const Login = () => {
   };
 
   return (
-    <div className="flex justify-center p-10">
+    <div className="flex justify-center p-4 sm:p-10">
       <Card className="w-full max-w-sm">
         <h1 className="font-display text-2xl text-text mb-5">Log in</h1>
 

@@ -1,21 +1,4 @@
-/**
- * utils/emailTemplates/layout.js
- *
- * A single shared HTML wrapper used by every email template. Keeps a
- * consistent header/footer across all emails without repeating the same
- * boilerplate HTML seven times across seven template functions.
- *
- * Each individual email template (see the other files in this folder)
- * only needs to provide the inner content — a short HTML snippet — and
- * this function wraps it in the full page structure.
- *
- * Inline CSS is used throughout (rather than a <style> block or external
- * stylesheet) because most email clients — Gmail, Outlook, Apple Mail —
- * strip out <style> tags or render them inconsistently. Inline styles on
- * each element are the only reliable way to control appearance across
- * different email clients.
- */
-
+// inline styles throughout — Gmail/Outlook/Apple Mail strip or mangle <style> blocks
 const wrapEmail = (innerHtml) => `
 <!DOCTYPE html>
 <html>

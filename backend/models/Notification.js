@@ -15,8 +15,6 @@ const notificationSchema = new mongoose.Schema(
       maxlength: [500, 'Message cannot exceed 500 characters'],
     },
 
-    // Matches the `type` enum listed in the API contract section 5.
-    // Used by the frontend to pick an icon/style per notification type.
     type: {
       type: String,
       enum: {

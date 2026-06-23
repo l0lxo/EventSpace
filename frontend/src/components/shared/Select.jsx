@@ -1,17 +1,3 @@
-/**
- * src/components/shared/Select.jsx
- *
- * Used for the category dropdown, role selector, and any other fixed-enum
- * field. Same flat visual treatment as Input — keeps forms feeling like
- * one coherent system rather than a mix of native and custom-styled controls.
- *
- * Usage:
- *   <Select label="Category" {...register('category')}>
- *     <option value="">Select a category</option>
- *     <option value="Technology">Technology</option>
- *   </Select>
- */
-
 const Select = ({ label, error, children, className = '', ...rest }) => {
   return (
     <div className={className}>

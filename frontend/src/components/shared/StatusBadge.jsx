@@ -1,31 +1,10 @@
-/**
- * src/components/shared/StatusBadge.jsx
- *
- * The one recognizable visual motif used consistently across the entire
- * app — every event status, booking status, and user status renders
- * through this same component. Deliberately NOT a filled pill shape
- * (the generic SaaS-dashboard default) — a thin colored border with
- * colored text on a near-white tint reads as more restrained and more
- * "institutional software" than a bright filled badge.
- *
- * Usage:
- *   <StatusBadge status="approved" />
- *   <StatusBadge status="pending" />
- *   <StatusBadge status="rejected" />
- */
-
 const STATUS_CONFIG = {
-  // Event statuses
   pending: { label: 'Pending review', color: 'warning' },
   approved: { label: 'Approved', color: 'success' },
   rejected: { label: 'Rejected', color: 'danger' },
   modification_requested: { label: 'Changes requested', color: 'warning' },
   cancelled: { label: 'Cancelled', color: 'muted' },
-
-  // Booking statuses
   confirmed: { label: 'Confirmed', color: 'success' },
-
-  // Reuse for generic true/false disabled-user state if needed
   disabled: { label: 'Disabled', color: 'danger' },
   active: { label: 'Active', color: 'success' },
 };

@@ -1,18 +1,5 @@
-/**
- * routes/events.js
- *
- * Eight endpoints covering event browsing, creation, editing, and the
- * admin approval workflow.
- *
- * IMPORTANT — route order in this file matters. Express matches routes
- * top to bottom, and ':id' in a route path matches ANY string. So
- * '/my-events' and '/pending' MUST be defined before '/:id', otherwise
- * a request to GET /api/events/my-events would incorrectly match the
- * GET /api/events/:id handler, with 'my-events' treated as an event ID.
- *
- * Mounted in server.js as: app.use('/api/events', eventRoutes)
- */
-
+// route order matters here — '/my-events' and '/pending' must come before '/:id',
+// otherwise Express matches them as an event id
 const express = require('express');
 const router = express.Router();
 const { body, query, validationResult } = require('express-validator');
@@ -28,24 +15,16 @@ const {
   sendEventCancelledEmail,
 } = require('../utils/email');
 
-// ─── Helper: format event for response ───────────────────────────────────────
-// Keeps response shape consistent across all endpoints. `event` here is
-// expected to already be .populate('createdBy', '...') where needed.
 const formatEvent = (event) => {
   const obj = event.toJSON ? event.toJSON() : event;
   return obj;
 };
 
-// ─── Helper: calculate the 14-days-from-now cutoff ───────────────────────────
 const fourteenDaysFromNow = () => {
   const d = new Date();
   d.setDate(d.getDate() + 14);
   return d;
 };
-
-// ════════════════════════════════════════════════════════════════════════════
-// VALIDATION RULES
-// ════════════════════════════════════════════════════════════════════════════
 
 const createEventValidation = [
   body('title').trim().notEmpty().withMessage('Title is required')
@@ -93,9 +72,7 @@ const reviewValidation = [
     .withMessage('Feedback is required when rejecting or requesting modifications'),
 ];
 
-// ════════════════════════════════════════════════════════════════════════════
 // GET /api/events  — Public. Browse approved, upcoming events.
-// ════════════════════════════════════════════════════════════════════════════
 router.get('/', async (req, res) => {
   try {
     const {
@@ -155,10 +132,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // GET /api/events/my-events — Organizer. Their own events, any status.
 // Must come BEFORE /:id.
-// ════════════════════════════════════════════════════════════════════════════
 router.get('/my-events', protect, authorize('organizer'), async (req, res) => {
   try {
     const events = await Event.find({ createdBy: req.user._id })
@@ -174,10 +149,8 @@ router.get('/my-events', protect, authorize('organizer'), async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // GET /api/events/pending — Admin. Review queue, oldest first.
 // Must come BEFORE /:id.
-// ════════════════════════════════════════════════════════════════════════════
 router.get('/pending', protect, authorize('admin'), async (req, res) => {
   try {
     const events = await Event.find({ status: 'pending' })
@@ -194,9 +167,7 @@ router.get('/pending', protect, authorize('admin'), async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // GET /api/events/:id — Public. Single event detail.
-// ════════════════════════════════════════════════════════════════════════════
 router.get('/:id', async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
@@ -218,9 +189,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // POST /api/events — Organizer. Create event, status defaults to 'pending'.
-// ════════════════════════════════════════════════════════════════════════════
 router.post('/', protect, authorize('organizer'), createEventValidation, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -269,10 +238,8 @@ router.post('/', protect, authorize('organizer'), createEventValidation, async (
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // PUT /api/events/:id — Organizer (own, pending/modification_requested only)
 //                       or Admin (any event, any status).
-// ════════════════════════════════════════════════════════════════════════════
 router.put('/:id', protect, authorize('organizer', 'admin'), async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
@@ -331,11 +298,9 @@ router.put('/:id', protect, authorize('organizer', 'admin'), async (req, res) =>
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // DELETE /api/events/:id — Organizer (own, pending only) or Admin (any).
 // Soft-deletes by setting status to 'cancelled' rather than removing the
 // document, so booking history and reporting stay intact.
-// ════════════════════════════════════════════════════════════════════════════
 router.delete('/:id', protect, authorize('organizer', 'admin'), async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
@@ -392,9 +357,7 @@ router.delete('/:id', protect, authorize('organizer', 'admin'), async (req, res)
   }
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // PATCH /api/events/:id/review — Admin. Approve / reject / request modifications.
-// ════════════════════════════════════════════════════════════════════════════
 router.patch('/:id/review', protect, authorize('admin'), reviewValidation, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
