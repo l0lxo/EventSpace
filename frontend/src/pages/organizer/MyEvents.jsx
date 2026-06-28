@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import api from '../../utils/api';
+import { getPosterUrl } from '../../utils/media';
 import Card from '../../components/shared/Card';
 import Button from '../../components/shared/Button';
 import StatusBadge from '../../components/shared/StatusBadge';
@@ -27,15 +28,24 @@ const MyEventRow = ({ event, onCancelled }) => {
   return (
     <Card>
       <div className="flex flex-wrap justify-between items-start gap-4">
-        <div>
-          <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
-            {event.category}
-          </p>
-          <h3 className="font-display text-lg text-text">{event.title}</h3>
-          <p className="text-sm font-mono text-text mt-1">
-            {format(parseISO(event.date), 'MMM d, yyyy')} · {event.time}
-          </p>
-          <p className="text-sm text-text-muted">{event.location}</p>
+        <div className="flex gap-4">
+          {event.posterUrl && (
+            <img
+              src={getPosterUrl(event.posterUrl)}
+              alt=""
+              className="w-20 h-20 object-cover rounded-sm border border-border flex-shrink-0"
+            />
+          )}
+          <div>
+            <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
+              {event.category}
+            </p>
+            <h3 className="font-display text-lg text-text">{event.title}</h3>
+            <p className="text-sm font-mono text-text mt-1">
+              {format(parseISO(event.date), 'MMM d, yyyy')} · {event.time}
+            </p>
+            <p className="text-sm text-text-muted">{event.location}</p>
+          </div>
         </div>
         <StatusBadge status={event.status} />
       </div>

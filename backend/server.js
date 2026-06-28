@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -31,6 +32,16 @@ app.use(
     credentials: true,
     // without this, cross-origin JS can't read Content-Disposition — needed for the CSV export filename
     exposedHeaders: ['Content-Disposition'],
+  })
+);
+
+// served ahead of the rate limiter so image loads don't eat into the API quota;
+// CORP header overridden since helmet defaults it to same-origin, which would
+// block the frontend (different port) from loading these in an <img>
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, 'uploads'), {
+    setHeaders: (res) => res.set('Cross-Origin-Resource-Policy', 'cross-origin'),
   })
 );
 

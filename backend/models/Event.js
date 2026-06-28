@@ -52,6 +52,12 @@ const eventSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // relative path under /uploads, e.g. /uploads/posters/169...-123.jpg — optional
+    posterUrl: {
+      type: String,
+      default: null,
+    },
+
     capacity: {
       type: Number,
       required: [true, "Capacity is required"],

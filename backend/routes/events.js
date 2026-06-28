@@ -1,5 +1,7 @@
 // route order matters here — '/my-events' and '/pending' must come before '/:id',
 // otherwise Express matches them as an event id
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const router = express.Router();
 const { body, query, validationResult } = require('express-validator');
@@ -7,6 +9,7 @@ const { body, query, validationResult } = require('express-validator');
 const Event = require('../models/Event');
 const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
+const uploadPoster = require('../middleware/upload');
 const notifyUser = require('../utils/notify');
 const {
   sendEventApprovedEmail,
@@ -24,6 +27,21 @@ const fourteenDaysFromNow = () => {
   const d = new Date();
   d.setDate(d.getDate() + 14);
   return d;
+};
+
+// multipart fields arrive as strings — the frontend JSON-stringifies these two
+// nested objects, so parse them back before validation/creation runs
+const parseJsonFields = (req, res, next) => {
+  ['fundingRequest', 'externalGuests'].forEach((field) => {
+    if (typeof req.body[field] === 'string') {
+      try {
+        req.body[field] = JSON.parse(req.body[field]);
+      } catch {
+        // leave as-is — validation below will reject whatever this resolves to
+      }
+    }
+  });
+  next();
 };
 
 const createEventValidation = [
@@ -190,113 +208,137 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/events — Organizer. Create event, status defaults to 'pending'.
-router.post('/', protect, authorize('organizer'), createEventValidation, async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ message: errors.array()[0].msg });
-  }
-
-  try {
-    const {
-      title, description, date, time, location, capacity, category,
-      fundingRequest, externalGuests,
-    } = req.body;
-
-    const event = await Event.create({
-      title,
-      description,
-      date,
-      time,
-      location,
-      capacity,
-      category,
-      createdBy: req.user._id,
-      fundingRequest: fundingRequest?.requested
-        ? {
-            requested: true,
-            budget: fundingRequest.budget,
-            justification: fundingRequest.justification,
-          }
-        : { requested: false },
-      externalGuests: externalGuests?.requested
-        ? {
-            requested: true,
-            reason: externalGuests.reason,
-          }
-        : { requested: false },
-      // status defaults to 'pending' via the schema — not set explicitly here
-    });
-
-    res.status(201).json({ event: formatEvent(event) });
-  } catch (err) {
-    if (err.name === 'ValidationError') {
-      const messages = Object.values(err.errors).map((e) => e.message);
-      return res.status(400).json({ message: messages[0] });
+router.post(
+  '/',
+  protect,
+  authorize('organizer'),
+  uploadPoster,
+  parseJsonFields,
+  createEventValidation,
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg });
     }
-    console.error('Create event error:', err);
-    res.status(500).json({ message: 'Server error creating event' });
+
+    try {
+      const {
+        title, description, date, time, location, capacity, category,
+        fundingRequest, externalGuests,
+      } = req.body;
+
+      const event = await Event.create({
+        title,
+        description,
+        date,
+        time,
+        location,
+        capacity,
+        category,
+        createdBy: req.user._id,
+        posterUrl: req.file ? `/uploads/posters/${req.file.filename}` : null,
+        fundingRequest: fundingRequest?.requested
+          ? {
+              requested: true,
+              budget: fundingRequest.budget,
+              justification: fundingRequest.justification,
+            }
+          : { requested: false },
+        externalGuests: externalGuests?.requested
+          ? {
+              requested: true,
+              reason: externalGuests.reason,
+            }
+          : { requested: false },
+        // status defaults to 'pending' via the schema — not set explicitly here
+      });
+
+      res.status(201).json({ event: formatEvent(event) });
+    } catch (err) {
+      if (err.name === 'ValidationError') {
+        const messages = Object.values(err.errors).map((e) => e.message);
+        return res.status(400).json({ message: messages[0] });
+      }
+      console.error('Create event error:', err);
+      res.status(500).json({ message: 'Server error creating event' });
+    }
   }
-});
+);
 
 // PUT /api/events/:id — Organizer (own, pending/modification_requested only)
 //                       or Admin (any event, any status).
-router.put('/:id', protect, authorize('organizer', 'admin'), async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id);
+router.put(
+  '/:id',
+  protect,
+  authorize('organizer', 'admin'),
+  uploadPoster,
+  parseJsonFields,
+  async (req, res) => {
+    try {
+      const event = await Event.findById(req.params.id);
 
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-
-    const isOwner = event.createdBy.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === 'admin';
-
-    if (!isAdmin) {
-      if (!isOwner) {
-        return res.status(403).json({ message: 'You can only edit your own events' });
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
       }
-      if (!['pending', 'modification_requested'].includes(event.status)) {
-        return res.status(403).json({
-          message: 'Cannot edit an event that has already been approved or rejected',
-        });
+
+      const isOwner = event.createdBy.toString() === req.user._id.toString();
+      const isAdmin = req.user.role === 'admin';
+
+      if (!isAdmin) {
+        if (!isOwner) {
+          return res.status(403).json({ message: 'You can only edit your own events' });
+        }
+        if (!['pending', 'modification_requested'].includes(event.status)) {
+          return res.status(403).json({
+            message: 'Cannot edit an event that has already been approved or rejected',
+          });
+        }
       }
-    }
 
-    // Whitelist of fields allowed to be edited — prevents a request body
-    // from sneaking in changes to e.g. currentBookings or createdBy.
-    const editableFields = [
-      'title', 'description', 'date', 'time', 'location',
-      'capacity', 'category', 'fundingRequest', 'externalGuests',
-    ];
+      // Whitelist of fields allowed to be edited — prevents a request body
+      // from sneaking in changes to e.g. currentBookings or createdBy.
+      const editableFields = [
+        'title', 'description', 'date', 'time', 'location',
+        'capacity', 'category', 'fundingRequest', 'externalGuests',
+      ];
 
-    editableFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        event[field] = req.body[field];
+      editableFields.forEach((field) => {
+        if (req.body[field] !== undefined) {
+          event[field] = req.body[field];
+        }
+      });
+
+      if (req.file) {
+        // replacing an existing poster — remove the old file rather than leaving it orphaned
+        if (event.posterUrl) {
+          fs.unlink(path.join(__dirname, '..', event.posterUrl), () => {});
+        }
+        event.posterUrl = `/uploads/posters/${req.file.filename}`;
       }
-    });
 
-    // If an organizer edits after a modification request, send it back
-    // into the review queue automatically.
-    if (!isAdmin && event.status === 'modification_requested') {
-      event.status = 'pending';
-      event.feedback = null;
-    }
+      // If an organizer edits after a modification request, send it back
+      // into the review queue automatically.
+      if (!isAdmin && event.status === 'modification_requested') {
+        event.status = 'pending';
+        event.feedback = null;
+      }
 
-    await event.save();
+      await event.save();
 
-    res.status(200).json({ event: formatEvent(event) });
-  } catch (err) {
-    if (err.name === 'ValidationError') {
-      const messages = Object.values(err.errors).map((e) => e.message);
-      return res.status(400).json({ message: messages[0] });
+      res.status(200).json({ event: formatEvent(event) });
+    } catch (err) {
+      if (err.name === 'ValidationError') {
+        const messages = Object.values(err.errors).map((e) => e.message);
+        return res.status(400).json({ message: messages[0] });
+      }
+      if (err.name === 'CastError') {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+      console.error('Update event error:', err);
+      res.status(500).json({ message: 'Server error updating event' });
     }
-    if (err.name === 'CastError') {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-    console.error('Update event error:', err);
-    res.status(500).json({ message: 'Server error updating event' });
   }
-});
+);
 
 // DELETE /api/events/:id — Organizer (own, pending only) or Admin (any).
 // Soft-deletes by setting status to 'cancelled' rather than removing the

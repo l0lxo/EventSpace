@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import Card from '../shared/Card';
 import CapacityBar from './CapacityBar';
+import { getPosterUrl } from '../../utils/media';
 
 const EventCard = ({ event }) => {
   const organizerName = event.createdBy?.organizationName || event.createdBy?.name;
@@ -9,6 +10,13 @@ const EventCard = ({ event }) => {
   return (
     <Link to={`/events/${event.id}`}>
       <Card className="hover:border-accent transition-colors h-full flex flex-col">
+        {event.posterUrl && (
+          <img
+            src={getPosterUrl(event.posterUrl)}
+            alt=""
+            className="w-full h-32 object-cover rounded-sm border border-border mb-3"
+          />
+        )}
         <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
           {event.category}
         </p>

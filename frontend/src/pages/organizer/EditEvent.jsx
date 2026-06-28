@@ -19,6 +19,7 @@ const toFormValues = (event) => ({
   fundingJustification: event.fundingRequest?.justification ?? '',
   guestsRequested: event.externalGuests?.requested ?? false,
   guestsReason: event.externalGuests?.reason ?? '',
+  posterUrl: event.posterUrl ?? null,
 });
 
 const EditEvent = () => {

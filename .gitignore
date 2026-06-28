@@ -7,3 +7,5 @@ Thumbs.db
 /frontend/dist
 /frontend/build
 *.log
+/backend/uploads/posters/*
+!/backend/uploads/posters/.gitkeep

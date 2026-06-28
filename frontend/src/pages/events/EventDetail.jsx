@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import api from '../../utils/api';
+import { getPosterUrl } from '../../utils/media';
 import Card from '../../components/shared/Card';
 import CapacityBar from '../../components/events/CapacityBar';
 import BookingAction from '../../components/events/BookingAction';
@@ -82,6 +83,13 @@ const EventDetail = () => {
       <Link to="/" className="text-accent text-sm">← Back to events</Link>
 
       <Card className="max-w-2xl mt-4">
+        {event.posterUrl && (
+          <img
+            src={getPosterUrl(event.posterUrl)}
+            alt=""
+            className="w-full h-56 object-cover rounded-sm border border-border mb-4"
+          />
+        )}
         <p className="text-xs font-medium text-text-muted uppercase tracking-wide mb-2">
           {event.category}
         </p>

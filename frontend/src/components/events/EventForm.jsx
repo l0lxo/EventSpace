@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { format, addDays } from 'date-fns';
 import { EVENT_CATEGORIES } from '../../utils/constants';
+import { getPosterUrl } from '../../utils/media';
 import Input from '../shared/Input';
 import Select from '../shared/Select';
 import Button from '../shared/Button';
@@ -10,6 +11,8 @@ const ADVANCE_NOTICE_DAYS = 14;
 
 const EventForm = ({ defaultValues, onSubmit, submitLabel, enforceAdvanceNotice }) => {
   const [serverError, setServerError] = useState('');
+  const [posterFile, setPosterFile] = useState(null);
+  const [posterPreview, setPosterPreview] = useState(getPosterUrl(defaultValues?.posterUrl));
   const {
     register,
     handleSubmit,
@@ -25,30 +28,48 @@ const EventForm = ({ defaultValues, onSubmit, submitLabel, enforceAdvanceNotice 
     ? format(addDays(new Date(), ADVANCE_NOTICE_DAYS), 'yyyy-MM-dd')
     : undefined;
 
+  const handlePosterChange = (e) => {
+    const file = e.target.files?.[0] ?? null;
+    setPosterFile(file);
+    setPosterPreview(file ? URL.createObjectURL(file) : getPosterUrl(defaultValues?.posterUrl));
+  };
+
   const submit = async (values) => {
     setServerError('');
-    const payload = {
-      title: values.title,
-      description: values.description,
-      date: values.date,
-      time: values.time,
-      location: values.location,
-      capacity: Number(values.capacity),
-      category: values.category,
-      fundingRequest: values.fundingRequested
-        ? {
-            requested: true,
-            budget: Number(values.fundingBudget),
-            justification: values.fundingJustification,
-          }
-        : { requested: false },
-      externalGuests: values.guestsRequested
-        ? { requested: true, reason: values.guestsReason }
-        : { requested: false },
-    };
+    const formData = new FormData();
+    formData.append('title', values.title);
+    formData.append('description', values.description);
+    formData.append('date', values.date);
+    formData.append('time', values.time);
+    formData.append('location', values.location);
+    formData.append('capacity', Number(values.capacity));
+    formData.append('category', values.category);
+    formData.append(
+      'fundingRequest',
+      JSON.stringify(
+        values.fundingRequested
+          ? {
+              requested: true,
+              budget: Number(values.fundingBudget),
+              justification: values.fundingJustification,
+            }
+          : { requested: false }
+      )
+    );
+    formData.append(
+      'externalGuests',
+      JSON.stringify(
+        values.guestsRequested
+          ? { requested: true, reason: values.guestsReason }
+          : { requested: false }
+      )
+    );
+    if (posterFile) {
+      formData.append('poster', posterFile);
+    }
 
     try {
-      await onSubmit(payload);
+      await onSubmit(formData);
     } catch (err) {
       setServerError(err.response?.data?.message ?? 'Something went wrong. Please try again.');
     }
@@ -56,6 +77,25 @@ const EventForm = ({ defaultValues, onSubmit, submitLabel, enforceAdvanceNotice 
 
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-4 max-w-xl">
+      <div>
+        <label className="block text-sm font-medium text-text mb-1">
+          Poster (optional)
+        </label>
+        {posterPreview && (
+          <img
+            src={posterPreview}
+            alt=""
+            className="w-full max-w-xs h-40 object-cover rounded-sm border border-border mb-2"
+          />
+        )}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handlePosterChange}
+          className="block w-full text-sm text-text-muted"
+        />
+      </div>
+
       <Input
         label="Title"
         error={errors.title?.message}
