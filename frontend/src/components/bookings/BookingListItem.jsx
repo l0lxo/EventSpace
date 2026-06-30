@@ -66,7 +66,7 @@ const BookingListItem = ({ booking, onCancelled }) => {
       )}
 
       {canCancel && confirmingCancel && (
-        <div className="flex gap-2 items-center mt-3">
+        <div className="flex flex-wrap gap-2 items-center mt-3">
           <span className="text-sm text-text">Cancel this booking?</span>
           <Button variant="danger" size="sm" isLoading={isSubmitting} onClick={handleCancel}>
             Yes, cancel

@@ -18,12 +18,13 @@ transporter.verify((err) => {
   }
 });
 
-const sendEmail = async (to, subject, html) => {
+const sendEmail = async (to, subject, html, attachments) => {
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to,
     subject,
     html,
+    ...(attachments ? { attachments } : {}),
   });
 };
 

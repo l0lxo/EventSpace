@@ -1,4 +1,4 @@
-# Strathmore Events — API Contract
+# EventSpace — API Contract
 
 **Base URL (dev):** `http://localhost:5000/api`
 **Auth scheme:** `Authorization: Bearer <token>` header on all protected routes

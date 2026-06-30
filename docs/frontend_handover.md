@@ -1,4 +1,4 @@
-# Strathmore Events — Frontend Build Guide
+# EventSpace — Frontend Build Guide
 
 This is your roadmap. The backend is fully built and tested — every route
 described below is real, working, and already handling auth, validation,

@@ -71,7 +71,7 @@ const authLimiter = rateLimit({
 
 app.get('/', (req, res) => {
   res.json({
-    message: 'Strathmore Events API is running',
+    message: 'EventSpace API is running',
     environment: process.env.NODE_ENV,
     timestamp: new Date().toISOString(),
   });

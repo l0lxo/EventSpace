@@ -52,7 +52,12 @@ const UserRow = ({ user, onUpdated, onDeleted }) => {
       </td>
       <td className="py-3">
         <div className="flex gap-2 items-center flex-wrap">
-          <Button variant="secondary" size="sm" isLoading={isSubmitting} onClick={handleToggleDisabled}>
+          <Button
+            variant={user.isDisabled ? 'success' : 'warning'}
+            size="sm"
+            isLoading={isSubmitting}
+            onClick={handleToggleDisabled}
+          >
             {user.isDisabled ? 'Re-enable' : 'Disable'}
           </Button>
           {!confirmingDelete && (

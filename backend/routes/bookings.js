@@ -9,6 +9,7 @@ const Booking = require('../models/Booking');
 const Event = require('../models/Event');
 const { protect, authorize } = require('../middleware/auth');
 const notifyUser = require('../utils/notify');
+const generateTicketImage = require('../utils/generateTicket');
 const {
   sendBookingConfirmedEmail,
   sendBookingCancelledEmail,
@@ -27,6 +28,66 @@ const getEventDateTime = (event) => {
 };
 
 const formatBooking = (booking) => (booking.toJSON ? booking.toJSON() : booking);
+
+// Runs after the booking response has already been sent — ticket rendering and
+// email delivery take seconds and shouldn't make the student wait to see their
+// booking confirmed. Any failure here is logged only; the booking itself already succeeded.
+const sendBookingSideEffects = async ({ booking, updatedEvent, student, io, seatsRemaining }) => {
+  let ticketAttachment;
+  try {
+    const ticketBuffer = await generateTicketImage({
+      booking,
+      event: updatedEvent,
+      student,
+    });
+    ticketAttachment = {
+      filename: 'ticket.png',
+      content: ticketBuffer,
+      contentType: 'image/png',
+    };
+  } catch (ticketErr) {
+    console.error('Failed to generate booking ticket image:', ticketErr);
+  }
+
+  // wrapped independently so an email failure never undoes the booking that already succeeded
+  let organizer = null;
+  try {
+    await sendBookingConfirmedEmail(
+      student.email,
+      updatedEvent.title,
+      updatedEvent.date,
+      updatedEvent.time,
+      updatedEvent.location,
+      ticketAttachment
+    );
+
+    // If this booking just filled the event to capacity, alert the organizer
+    if (seatsRemaining === 0) {
+      organizer = await require('../models/User').findById(updatedEvent.createdBy);
+      if (organizer) {
+        await sendCapacityFullEmail(organizer.email, updatedEvent.title);
+      }
+    }
+  } catch (emailErr) {
+    console.error('Failed to send booking emails:', emailErr);
+  }
+
+  await notifyUser(io, {
+    userId: student._id,
+    message: `Your booking for "${updatedEvent.title}" is confirmed.`,
+    type: 'booking_confirmed',
+    relatedEvent: updatedEvent._id,
+  });
+
+  if (seatsRemaining === 0 && organizer) {
+    await notifyUser(io, {
+      userId: organizer._id,
+      message: `"${updatedEvent.title}" has reached full capacity.`,
+      type: 'capacity_full',
+      relatedEvent: updatedEvent._id,
+    });
+  }
+};
 
 // POST /api/bookings — Student. Book a seat on an approved event.
 router.post('/', protect, authorize('student'), async (req, res) => {
@@ -105,47 +166,22 @@ router.post('/', protect, authorize('student'), async (req, res) => {
       seatsRemaining,
     });
 
-    // wrapped independently so an email failure never undoes the booking that already succeeded
-    let organizer = null;
-    try {
-      await sendBookingConfirmedEmail(
-        req.user.email,
-        updatedEvent.title,
-        updatedEvent.date,
-        updatedEvent.time,
-        updatedEvent.location
-      );
-
-      // If this booking just filled the event to capacity, alert the organizer
-      if (seatsRemaining === 0) {
-        organizer = await require('../models/User').findById(updatedEvent.createdBy);
-        if (organizer) {
-          await sendCapacityFullEmail(organizer.email, updatedEvent.title);
-        }
-      }
-    } catch (emailErr) {
-      console.error('Failed to send booking emails:', emailErr);
-    }
-
-    await notifyUser(io, {
-      userId: req.user._id,
-      message: `Your booking for "${updatedEvent.title}" is confirmed.`,
-      type: 'booking_confirmed',
-      relatedEvent: updatedEvent._id,
-    });
-
-    if (seatsRemaining === 0 && organizer) {
-      await notifyUser(io, {
-        userId: organizer._id,
-        message: `"${updatedEvent.title}" has reached full capacity.`,
-        type: 'capacity_full',
-        relatedEvent: updatedEvent._id,
-      });
-    }
-
+    // respond as soon as the booking itself is confirmed — ticket rendering and
+    // email/notification delivery happen after, so the UI doesn't wait on a
+    // multi-second ticket render or an SMTP round trip to reflect the booking
     res.status(201).json({
       booking: formatBooking(booking),
       seatsRemaining,
+    });
+
+    sendBookingSideEffects({
+      booking,
+      updatedEvent,
+      student: req.user,
+      io,
+      seatsRemaining,
+    }).catch((sideEffectErr) => {
+      console.error('Booking confirmation side effects failed:', sideEffectErr);
     });
   } catch (err) {
     if (err.name === 'CastError') {
@@ -155,6 +191,23 @@ router.post('/', protect, authorize('student'), async (req, res) => {
     res.status(500).json({ message: 'Server error creating booking' });
   }
 });
+
+// Same reasoning as sendBookingSideEffects above — runs after the cancellation
+// response has already been sent, so the UI updates without waiting on an SMTP round trip.
+const sendCancellationSideEffects = async ({ studentId, studentEmail, event, io }) => {
+  try {
+    await sendBookingCancelledEmail(studentEmail, event.title);
+  } catch (emailErr) {
+    console.error('Failed to send cancellation email:', emailErr);
+  }
+
+  await notifyUser(io, {
+    userId: studentId,
+    message: `Your booking for "${event.title}" has been cancelled.`,
+    type: 'booking_cancelled',
+    relatedEvent: event._id,
+  });
+};
 
 // DELETE /api/bookings/:id — Student (own bookings only). Cancel a booking.
 router.delete('/:id', protect, authorize('student'), async (req, res) => {
@@ -202,22 +255,20 @@ router.delete('/:id', protect, authorize('student'), async (req, res) => {
       seatsRemaining,
     });
 
-    try {
-      await sendBookingCancelledEmail(req.user.email, booking.event.title);
-    } catch (emailErr) {
-      console.error('Failed to send cancellation email:', emailErr);
-    }
-
-    await notifyUser(io, {
-      userId: req.user._id,
-      message: `Your booking for "${booking.event.title}" has been cancelled.`,
-      type: 'booking_cancelled',
-      relatedEvent: booking.event._id,
-    });
-
+    // respond as soon as the cancellation itself is saved — email/notification
+    // delivery happens after, so the UI doesn't wait on an SMTP round trip
     res.status(200).json({
       message: 'Booking cancelled successfully',
       seatsRemaining,
+    });
+
+    sendCancellationSideEffects({
+      studentId: req.user._id,
+      studentEmail: req.user.email,
+      event: booking.event,
+      io,
+    }).catch((sideEffectErr) => {
+      console.error('Cancellation confirmation side effects failed:', sideEffectErr);
     });
   } catch (err) {
     if (err.name === 'CastError') {

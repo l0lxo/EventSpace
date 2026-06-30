@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../utils/api';
 import Select from '../../components/shared/Select';
+import SkeletonCard from '../../components/shared/SkeletonCard';
 import BookingListItem from '../../components/bookings/BookingListItem';
 
 const buildRequestKey = (status) => status || 'all';
@@ -57,7 +58,13 @@ const MyBookings = () => {
         <option value="cancelled">Cancelled</option>
       </Select>
 
-      {isLoading && <p className="text-text-muted">Loading your bookings…</p>}
+      {isLoading && (
+        <div className="space-y-4 max-w-2xl">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      )}
       {!isLoading && error && <p className="text-danger">{error}</p>}
       {!isLoading && !error && bookings.length === 0 && (
         <p className="text-text-muted">No bookings found.</p>

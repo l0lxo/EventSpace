@@ -2,6 +2,8 @@ const VARIANT_STYLES = {
   primary: 'bg-accent text-white border border-accent hover:bg-accent-hover',
   secondary: 'bg-white text-text border border-border hover:bg-surface',
   danger: 'bg-white text-danger border border-danger hover:bg-danger-bg',
+  success: 'bg-white text-success border border-success hover:bg-success-bg',
+  warning: 'bg-white text-warning border border-warning hover:bg-warning-bg',
   ghost: 'bg-transparent text-accent border border-transparent hover:bg-surface',
 };
 
@@ -28,7 +30,8 @@ const Button = ({
       onClick={onClick}
       disabled={disabled || isLoading}
       className={`
-        font-medium rounded-sm transition-colors duration-150
+        font-medium rounded-sm
+        transition-[color,background-color,border-color,transform] duration-150 active:duration-100 active:scale-[0.97]
         disabled:opacity-50 disabled:cursor-not-allowed
         ${VARIANT_STYLES[variant]}
         ${SIZE_STYLES[size]}

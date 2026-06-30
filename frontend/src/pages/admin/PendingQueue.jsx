@@ -4,6 +4,7 @@ import api from '../../utils/api';
 import { getPosterUrl } from '../../utils/media';
 import Card from '../../components/shared/Card';
 import Button from '../../components/shared/Button';
+import SkeletonCard from '../../components/shared/SkeletonCard';
 import EventReviewModal from '../../components/admin/EventReviewModal';
 
 const PendingQueue = () => {
@@ -40,7 +41,13 @@ const PendingQueue = () => {
     <div className="p-4 sm:p-10">
       <h1 className="font-display text-2xl text-text mb-5">Pending Events Review Queue</h1>
 
-      {events === null && <p className="text-text-muted">Loading…</p>}
+      {events === null && (
+        <div className="space-y-4 max-w-2xl">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      )}
       {events !== null && error && <p className="text-danger">{error}</p>}
       {events !== null && !error && events.length === 0 && (
         <p className="text-text-muted">No events awaiting review.</p>

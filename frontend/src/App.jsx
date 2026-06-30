@@ -5,6 +5,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import RootLayout from './components/layout/RootLayout';
 
+import Landing from './pages/Landing';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import EventsBrowse from './pages/events/EventsBrowse';
@@ -28,11 +29,14 @@ function App() {
         <SocketProvider>
           <NotificationProvider>
             <Routes>
+              {/* Landing, login, and register are full-bleed pages outside the app shell */}
+              <Route path="/" element={<Landing />} />
+              <Route path="login" element={<Login />} />
+              <Route path="register" element={<Register />} />
+
               <Route element={<RootLayout />}>
                 {/* Public */}
-                <Route index element={<EventsBrowse />} />
-                <Route path="login" element={<Login />} />
-                <Route path="register" element={<Register />} />
+                <Route path="events" element={<EventsBrowse />} />
                 <Route path="events/:id" element={<EventDetail />} />
                 <Route path="unauthorized" element={<Unauthorized />} />
 

@@ -122,7 +122,7 @@ const BookingAction = ({ event, onBooked, onCancelled }) => {
   return (
     <div>
       {error && <p className="text-sm text-danger mb-2">{error}</p>}
-      <Button isLoading={isSubmitting} onClick={handleBook}>
+      <Button variant="success" isLoading={isSubmitting} onClick={handleBook}>
         Book a seat
       </Button>
     </div>

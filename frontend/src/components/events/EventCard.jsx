@@ -9,7 +9,7 @@ const EventCard = ({ event }) => {
 
   return (
     <Link to={`/events/${event.id}`}>
-      <Card className="hover:border-accent transition-colors h-full flex flex-col">
+      <Card className="cursor-pointer hover:border-accent hover:-translate-y-[3px] transition-[transform,border-color] duration-200 ease-out h-full flex flex-col">
         {event.posterUrl && (
           <img
             src={getPosterUrl(event.posterUrl)}

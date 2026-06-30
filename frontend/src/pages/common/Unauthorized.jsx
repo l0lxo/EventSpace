@@ -8,7 +8,7 @@ const Unauthorized = () => (
     <p className="text-sm text-text-muted mt-2 max-w-sm">
       Your account doesn't have permission to view this. If you think this is a mistake, contact an administrator.
     </p>
-    <Link to="/" className="mt-6">
+    <Link to="/events" className="mt-6">
       <Button>Back to Browse Events</Button>
     </Link>
   </div>

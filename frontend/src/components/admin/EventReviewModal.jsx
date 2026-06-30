@@ -3,9 +3,9 @@ import api from '../../utils/api';
 import Button from '../shared/Button';
 
 const DECISIONS = [
-  { value: 'approved', label: 'Approve' },
-  { value: 'rejected', label: 'Reject' },
-  { value: 'modification_requested', label: 'Request changes' },
+  { value: 'approved', label: 'Approve', variant: 'success' },
+  { value: 'rejected', label: 'Reject', variant: 'danger' },
+  { value: 'modification_requested', label: 'Request changes', variant: 'warning' },
 ];
 
 const EventReviewModal = ({ event, onClose, onReviewed }) => {
@@ -40,8 +40,9 @@ const EventReviewModal = ({ event, onClose, onReviewed }) => {
           {DECISIONS.map((d) => (
             <Button
               key={d.value}
-              variant={decision === d.value ? 'primary' : 'secondary'}
+              variant={d.variant}
               size="sm"
+              className={decision === d.value ? 'ring-2 ring-current ring-offset-1' : ''}
               onClick={() => setDecision(d.value)}
             >
               {d.label}
@@ -65,9 +66,14 @@ const EventReviewModal = ({ event, onClose, onReviewed }) => {
 
         {error && <p className="text-sm text-danger mb-3">{error}</p>}
 
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button disabled={!canSubmit} isLoading={isSubmitting} onClick={handleSubmit}>
+          <Button
+            variant={DECISIONS.find((d) => d.value === decision)?.variant ?? 'primary'}
+            disabled={!canSubmit}
+            isLoading={isSubmitting}
+            onClick={handleSubmit}
+          >
             Submit review
           </Button>
         </div>

@@ -5,6 +5,7 @@ import api from '../../utils/api';
 import { getPosterUrl } from '../../utils/media';
 import Card from '../../components/shared/Card';
 import Button from '../../components/shared/Button';
+import SkeletonCard from '../../components/shared/SkeletonCard';
 import StatusBadge from '../../components/shared/StatusBadge';
 import CapacityBar from '../../components/events/CapacityBar';
 
@@ -62,7 +63,7 @@ const MyEventRow = ({ event, onCancelled }) => {
 
       {error && <p className="text-sm text-danger mt-3">{error}</p>}
 
-      <div className="flex gap-3 items-center mt-3">
+      <div className="flex flex-wrap gap-3 items-center mt-3">
         {EDITABLE_STATUSES.includes(event.status) && (
           <Link to={`/organizer/events/${event.id}/edit`} className="text-accent text-sm">Edit</Link>
         )}
@@ -76,7 +77,7 @@ const MyEventRow = ({ event, onCancelled }) => {
           </Button>
         )}
         {event.status === 'pending' && confirmingCancel && (
-          <span className="flex gap-2 items-center">
+          <span className="flex flex-wrap gap-2 items-center">
             <span className="text-sm text-text">Cancel this event?</span>
             <Button variant="danger" size="sm" isLoading={isSubmitting} onClick={handleCancel}>
               Yes, cancel
@@ -130,7 +131,13 @@ const MyEvents = () => {
         </Link>
       </div>
 
-      {events === null && <p className="text-text-muted">Loading your events…</p>}
+      {events === null && (
+        <div className="space-y-4 max-w-2xl">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      )}
       {events !== null && error && <p className="text-danger">{error}</p>}
       {events !== null && !error && events.length === 0 && (
         <p className="text-text-muted">You haven't created any events yet.</p>

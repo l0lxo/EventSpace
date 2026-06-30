@@ -12,6 +12,7 @@ const EventDetail = () => {
   const { id } = useParams();
   const [event, setEvent] = useState(null);
   const [error, setError] = useState('');
+  const [pulseTick, setPulseTick] = useState(0);
   // derive loading from whether the id changed since the last successful fetch
   const [loadedFor, setLoadedFor] = useState(null);
   const isLoading = loadedFor !== id;
@@ -48,6 +49,7 @@ const EventDetail = () => {
     const handleCapacityUpdated = (payload) => {
       if (payload.eventId !== id) return;
       setEvent((prev) => (prev ? { ...prev, currentBookings: payload.currentBookings } : prev));
+      setPulseTick((t) => t + 1);
     };
     const handleStatusChanged = (payload) => {
       if (payload.eventId !== id) return;
@@ -71,7 +73,7 @@ const EventDetail = () => {
     return (
       <div className="p-4 sm:p-10">
         <p className="text-danger">{error || 'Event not found.'}</p>
-        <Link to="/" className="text-accent text-sm">← Back to events</Link>
+        <Link to="/events" className="text-accent text-sm">← Back to events</Link>
       </div>
     );
   }
@@ -80,7 +82,7 @@ const EventDetail = () => {
 
   return (
     <div className="p-4 sm:p-10">
-      <Link to="/" className="text-accent text-sm">← Back to events</Link>
+      <Link to="/events" className="text-accent text-sm">← Back to events</Link>
 
       <Card className="max-w-2xl mt-4">
         {event.posterUrl && (
@@ -106,7 +108,7 @@ const EventDetail = () => {
         <p className="text-sm text-text mt-4 whitespace-pre-wrap">{event.description}</p>
 
         <div className="mt-5 max-w-xs">
-          <CapacityBar capacity={event.capacity} currentBookings={event.currentBookings} />
+          <CapacityBar capacity={event.capacity} currentBookings={event.currentBookings} pulseTick={pulseTick} />
         </div>
 
         {event.status === 'cancelled' ? (

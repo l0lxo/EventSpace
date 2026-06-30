@@ -13,14 +13,14 @@ const NotificationBell = () => {
         type="button"
         aria-label="Notifications"
         onClick={() => setIsOpen((open) => !open)}
-        className="relative text-text-muted hover:text-accent"
+        className="relative text-on-accent/80 hover:text-on-accent"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 text-[10px] leading-none font-mono text-accent">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] px-1 text-[10px] leading-4 text-center font-mono text-accent bg-white rounded-full">
             {unreadCount}
           </span>
         )}

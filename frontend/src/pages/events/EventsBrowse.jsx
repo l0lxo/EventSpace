@@ -5,6 +5,9 @@ import Input from '../../components/shared/Input';
 import Select from '../../components/shared/Select';
 import Button from '../../components/shared/Button';
 import EventCard from '../../components/events/EventCard';
+import SkeletonCard from '../../components/shared/SkeletonCard';
+
+const SKELETON_COUNT = 6;
 
 const EMPTY_FILTERS = { search: '', category: '', startDate: '', endDate: '', location: '' };
 
@@ -67,51 +70,59 @@ const EventsBrowse = () => {
     <div className="p-4 sm:p-10">
       <h1 className="font-display text-2xl text-text mb-5">Browse Events</h1>
 
-      <div className="flex flex-wrap gap-3 items-end mb-6">
-        <Input
-          label="Search"
-          placeholder="Title or description"
-          value={filters.search}
-          onChange={(e) => updateFilter('search', e.target.value)}
-          className="w-48"
-        />
-        <Select
-          label="Category"
-          value={filters.category}
-          onChange={(e) => updateFilter('category', e.target.value)}
-          className="w-44"
-        >
-          <option value="">All categories</option>
-          {EVENT_CATEGORIES.map((category) => (
-            <option key={category} value={category}>{category}</option>
-          ))}
-        </Select>
-        <Input
-          label="From"
-          type="date"
-          value={filters.startDate}
-          onChange={(e) => updateFilter('startDate', e.target.value)}
-          className="w-40"
-        />
-        <Input
-          label="To"
-          type="date"
-          value={filters.endDate}
-          onChange={(e) => updateFilter('endDate', e.target.value)}
-          className="w-40"
-        />
-        <Input
-          label="Location"
-          value={filters.location}
-          onChange={(e) => updateFilter('location', e.target.value)}
-          className="w-40"
-        />
-        <Button variant="secondary" onClick={() => setFilters(EMPTY_FILTERS)}>
-          Clear filters
-        </Button>
+      <div className="bg-accent-light rounded-md p-4 sm:p-6 mb-6">
+        <div className="flex flex-wrap gap-3 items-end">
+          <Input
+            label="Search"
+            placeholder="Title or description"
+            value={filters.search}
+            onChange={(e) => updateFilter('search', e.target.value)}
+            className="w-48"
+          />
+          <Select
+            label="Category"
+            value={filters.category}
+            onChange={(e) => updateFilter('category', e.target.value)}
+            className="w-44"
+          >
+            <option value="">All categories</option>
+            {EVENT_CATEGORIES.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </Select>
+          <Input
+            label="From"
+            type="date"
+            value={filters.startDate}
+            onChange={(e) => updateFilter('startDate', e.target.value)}
+            className="w-40"
+          />
+          <Input
+            label="To"
+            type="date"
+            value={filters.endDate}
+            onChange={(e) => updateFilter('endDate', e.target.value)}
+            className="w-40"
+          />
+          <Input
+            label="Location"
+            value={filters.location}
+            onChange={(e) => updateFilter('location', e.target.value)}
+            className="w-40"
+          />
+          <Button variant="secondary" onClick={() => setFilters(EMPTY_FILTERS)}>
+            Clear filters
+          </Button>
+        </div>
       </div>
 
-      {isLoading && <p className="text-text-muted">Loading events…</p>}
+      {isLoading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      )}
       {!isLoading && error && <p className="text-danger">{error}</p>}
       {!isLoading && !error && result.data.length === 0 && (
         <p className="text-text-muted">No events found.</p>

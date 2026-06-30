@@ -12,6 +12,8 @@
 
   --color-accent: #003366;
   --color-accent-hover: #002347;
+  --color-accent-light: #E8EFF5;
+  --color-on-accent: #FFFFFF;
 
   --color-success: #1A7F37;
   --color-success-bg: #F0F7F1;
@@ -55,4 +57,26 @@ h1, h2, h3, h4 {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Seat-count draws attention to itself on a live socket update — see CapacityBar */
+.seat-count {
+  display: inline-block;
+  transition: color 200ms ease-out, transform 200ms ease-out;
+}
+.seat-count-pulse {
+  color: var(--color-accent);
+  transform: scale(1.15);
+}
+.seat-count-pulse-danger {
+  color: var(--color-danger);
+  transform: scale(1.15);
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.animate-skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }

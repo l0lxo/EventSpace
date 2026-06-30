@@ -77,7 +77,14 @@ const sendEventCancelledEmail = async (studentEmail, eventTitle) => {
   await sendEmail(studentEmail, `Cancelled: ${eventTitle}`, html);
 };
 
-const sendBookingConfirmedEmail = async (studentEmail, eventTitle, eventDate, eventTime, location) => {
+const sendBookingConfirmedEmail = async (
+  studentEmail,
+  eventTitle,
+  eventDate,
+  eventTime,
+  location,
+  ticketAttachment
+) => {
   const formattedDate = format(new Date(eventDate), 'EEEE, MMMM d, yyyy');
 
   const html = wrapEmail(`
@@ -107,7 +114,12 @@ const sendBookingConfirmedEmail = async (studentEmail, eventTitle, eventDate, ev
     ${button('View My Bookings', `${FRONTEND_URL}/bookings`)}
   `);
 
-  await sendEmail(studentEmail, `Booking confirmed: ${eventTitle}`, html);
+  await sendEmail(
+    studentEmail,
+    `Booking confirmed: ${eventTitle}`,
+    html,
+    ticketAttachment ? [ticketAttachment] : undefined
+  );
 };
 
 const sendBookingCancelledEmail = async (studentEmail, eventTitle) => {

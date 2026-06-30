@@ -8,7 +8,7 @@ const NotFound = () => (
     <p className="text-sm text-text-muted mt-2 max-w-sm">
       The page you're looking for doesn't exist or may have moved.
     </p>
-    <Link to="/" className="mt-6">
+    <Link to="/events" className="mt-6">
       <Button>Back to Browse Events</Button>
     </Link>
   </div>
