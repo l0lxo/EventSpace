@@ -11,11 +11,12 @@ const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
 const uploadPoster = require('../middleware/upload');
 const notifyUser = require('../utils/notify');
+const cancelEventAndNotify = require('../utils/cancelEvent');
 const {
   sendEventApprovedEmail,
   sendEventRejectedEmail,
   sendModificationRequestedEmail,
-  sendEventCancelledEmail,
+  sendEventUpdatedEmail,
 } = require('../utils/email');
 
 const formatEvent = (event) => {
@@ -265,8 +266,8 @@ router.post(
   }
 );
 
-// PUT /api/events/:id — Organizer (own, pending/modification_requested only)
-//                       or Admin (any event, any status).
+// PUT /api/events/:id — Organizer (own; pending, modification_requested, or
+//                        approved) or Admin (any event, any status).
 router.put(
   '/:id',
   protect,
@@ -288,12 +289,15 @@ router.put(
         if (!isOwner) {
           return res.status(403).json({ message: 'You can only edit your own events' });
         }
-        if (!['pending', 'modification_requested'].includes(event.status)) {
+        if (!['pending', 'modification_requested', 'approved'].includes(event.status)) {
           return res.status(403).json({
-            message: 'Cannot edit an event that has already been approved or rejected',
+            message: 'Cannot edit an event that has been rejected or cancelled',
           });
         }
       }
+
+      // track before mutating — needed below to decide whether to notify attendees
+      const wasApproved = !isAdmin && event.status === 'approved';
 
       // Whitelist of fields allowed to be edited — prevents a request body
       // from sneaking in changes to e.g. currentBookings or createdBy.
@@ -317,7 +321,7 @@ router.put(
       }
 
       // If an organizer edits after a modification request, send it back
-      // into the review queue automatically.
+      // into the review queue automatically — approved events stay approved.
       if (!isAdmin && event.status === 'modification_requested') {
         event.status = 'pending';
         event.feedback = null;
@@ -325,7 +329,44 @@ router.put(
 
       await event.save();
 
+      const io = req.app.get('io');
+
+      // respond to the organizer immediately — they shouldn't wait on attendee
+      // emails before their save is confirmed
       res.status(200).json({ event: formatEvent(event) });
+
+      // Push a live update to anyone currently viewing this event's detail page
+      io.to(`room:${event._id}`).emit('event_details_updated', {
+        eventId: event._id,
+      });
+
+      // When a live approved event is edited, notify every booked student —
+      // runs after the response so the organizer's UI updates instantly;
+      // wrapped independently so a notification failure never reverts the edit
+      if (wasApproved) {
+        (async () => {
+          try {
+            const bookings = await Booking.find({ event: event._id, status: 'confirmed' })
+              .populate('student', 'email');
+
+            await Promise.all(
+              bookings.map((booking) =>
+                Promise.all([
+                  sendEventUpdatedEmail(booking.student.email, event.title),
+                  notifyUser(io, {
+                    userId: booking.student._id,
+                    message: `Details for "${event.title}" have been updated. Please review the changes.`,
+                    type: 'event_updated',
+                    relatedEvent: event._id,
+                  }),
+                ])
+              )
+            );
+          } catch (notifyErr) {
+            console.error('Failed to notify students of event update:', notifyErr);
+          }
+        })();
+      }
     } catch (err) {
       if (err.name === 'ValidationError') {
         const messages = Object.values(err.errors).map((e) => e.message);
@@ -340,27 +381,32 @@ router.put(
   }
 );
 
-// DELETE /api/events/:id — Organizer (own, pending only) or Admin (any).
+// DELETE /api/events/:id — Organizer (own; pending, approved, or
+// modification_requested) or Admin (any, any status).
 // Soft-deletes by setting status to 'cancelled' rather than removing the
 // document, so booking history and reporting stay intact.
 router.delete('/:id', protect, authorize('organizer', 'admin'), async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id);
+    const event = await Event.findById(req.params.id).populate('createdBy', 'name email');
 
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    const isOwner = event.createdBy.toString() === req.user._id.toString();
+    if (event.status === 'cancelled') {
+      return res.status(400).json({ message: 'This event has already been cancelled' });
+    }
+
+    const isOwner = event.createdBy._id.toString() === req.user._id.toString();
     const isAdmin = req.user.role === 'admin';
 
     if (!isAdmin) {
       if (!isOwner) {
         return res.status(403).json({ message: 'You can only cancel your own events' });
       }
-      if (event.status !== 'pending') {
+      if (!['pending', 'approved', 'modification_requested'].includes(event.status)) {
         return res.status(403).json({
-          message: 'Cannot cancel an event that has already been approved. Contact an administrator.',
+          message: 'This event cannot be cancelled in its current state.',
         });
       }
     }
@@ -368,26 +414,20 @@ router.delete('/:id', protect, authorize('organizer', 'admin'), async (req, res)
     event.status = 'cancelled';
     await event.save();
 
-    // Notify anyone with a confirmed booking that the event is cancelled.
-    // Wrapped in try/catch independently so an email failure doesn't
-    // prevent the cancellation itself from succeeding.
+    // Attendee notification always; organizer notification only when an
+    // admin (not the organizer themselves) performed the cancellation —
+    // wrapped independently so a notification failure never undoes the
+    // cancellation that already succeeded above.
     try {
-      const bookings = await Booking.find({ event: event._id, status: 'confirmed' })
-        .populate('student', 'email');
-
-      await Promise.all(
-        bookings.map((b) => sendEventCancelledEmail(b.student.email, event.title))
-      );
-    } catch (emailErr) {
-      console.error('Failed to send cancellation emails:', emailErr);
+      await cancelEventAndNotify({
+        event,
+        io: req.app.get('io'),
+        cancelledByAdmin: isAdmin,
+        reason: req.body.reason,
+      });
+    } catch (notifyErr) {
+      console.error('Failed to notify after event cancellation:', notifyErr);
     }
-
-    // Real-time: tell anyone currently viewing this event's page
-    const io = req.app.get('io');
-    io.to(`room:${event._id}`).emit('event_status_changed', {
-      eventId: event._id,
-      status: 'cancelled',
-    });
 
     res.status(200).json({ message: 'Event cancelled successfully' });
   } catch (err) {

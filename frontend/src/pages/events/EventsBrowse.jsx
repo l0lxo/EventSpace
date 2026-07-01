@@ -66,11 +66,19 @@ const EventsBrowse = () => {
 
   const updateFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
 
+  const handleDeleted = (eventId) => {
+    setResult((prev) => ({
+      ...prev,
+      data: prev.data.filter((e) => e.id !== eventId),
+      count: prev.count - 1,
+    }));
+  };
+
   return (
     <div className="p-4 sm:p-10">
       <h1 className="font-display text-2xl text-text mb-5">Browse Events</h1>
 
-      <div className="bg-accent-light rounded-md p-4 sm:p-6 mb-6">
+      <div className="bg-accent rounded-md p-4 sm:p-6 mb-6">
         <div className="flex flex-wrap gap-3 items-end">
           <Input
             label="Search"
@@ -132,7 +140,7 @@ const EventsBrowse = () => {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {result.data.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard key={event.id} event={event} onDeleted={handleDeleted} />
             ))}
           </div>
 

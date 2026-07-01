@@ -4,7 +4,7 @@ import { format, parseISO } from 'date-fns';
 import api from '../../utils/api';
 import EventForm from '../../components/events/EventForm';
 
-const EDITABLE_STATUSES = ['pending', 'modification_requested'];
+const EDITABLE_STATUSES = ['pending', 'modification_requested', 'approved'];
 
 const toFormValues = (event) => ({
   title: event.title,
@@ -54,6 +54,12 @@ const EditEvent = () => {
   }, [id]);
 
   const handleSubmit = async (payload) => {
+    if (event.status === 'approved') {
+      const confirmed = window.confirm(
+        'Are you sure you want to update this event? All booked attendees will be notified of the changes.'
+      );
+      if (!confirmed) return;
+    }
     await api.put(`/events/${id}`, payload);
     navigate('/organizer/events');
   };
@@ -66,7 +72,7 @@ const EditEvent = () => {
     return (
       <div className="p-4 sm:p-10">
         <p className="text-danger">{error || 'Event not found.'}</p>
-        <Link to="/organizer/events" className="text-accent text-sm">← Back to my events</Link>
+        <Link to="/organizer/events" className="text-text underline text-sm">← Back to my events</Link>
       </div>
     );
   }
@@ -77,7 +83,7 @@ const EditEvent = () => {
         <p className="text-danger">
           This event can no longer be edited (current status: {event.status}).
         </p>
-        <Link to="/organizer/events" className="text-accent text-sm">← Back to my events</Link>
+        <Link to="/organizer/events" className="text-text underline text-sm">← Back to my events</Link>
       </div>
     );
   }

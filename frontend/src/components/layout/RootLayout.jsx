@@ -26,13 +26,13 @@ const RootLayout = () => {
       )}
       {currentUser?.role === 'organizer' && (
         <>
-          <NavLink to="/organizer/events" className={navLinkClass} onClick={closeMenu}>My Events</NavLink>
+          <NavLink to="/organizer/events" end className={navLinkClass} onClick={closeMenu}>My Events</NavLink>
           <NavLink to="/organizer/events/new" className={navLinkClass} onClick={closeMenu}>Create Event</NavLink>
         </>
       )}
       {currentUser?.role === 'admin' && (
         <>
-          <NavLink to="/admin" className={navLinkClass} onClick={closeMenu}>Dashboard</NavLink>
+          <NavLink to="/admin" end className={navLinkClass} onClick={closeMenu}>Dashboard</NavLink>
           <NavLink to="/admin/pending" className={navLinkClass} onClick={closeMenu}>Pending Queue</NavLink>
           <NavLink to="/admin/users" className={navLinkClass} onClick={closeMenu}>Users</NavLink>
           <NavLink to="/admin/reports" className={navLinkClass} onClick={closeMenu}>Reports</NavLink>
@@ -42,10 +42,10 @@ const RootLayout = () => {
   );
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-screen bg-bg flex flex-col">
       <nav className="sticky top-0 z-50 bg-accent text-on-accent px-4 sm:px-6 py-4 font-body text-[15px]">
         <div className="flex items-center gap-4">
-          <Link to="/events" className="font-display text-xl font-semibold text-on-accent">
+          <Link to="/" className="font-display text-xl font-semibold text-on-accent">
             EventSpace
           </Link>
 
@@ -111,7 +111,9 @@ const RootLayout = () => {
           </div>
         )}
       </nav>
-      <Outlet />
+      <div className="flex-1 flex flex-col">
+        <Outlet />
+      </div>
     </div>
   );
 };

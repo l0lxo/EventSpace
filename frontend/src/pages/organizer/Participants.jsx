@@ -65,14 +65,14 @@ const Participants = () => {
     return (
       <div className="p-4 sm:p-10">
         <p className="text-danger">{error}</p>
-        <Link to="/organizer/events" className="text-accent text-sm">← Back to my events</Link>
+        <Link to="/organizer/events" className="text-text underline text-sm">← Back to my events</Link>
       </div>
     );
   }
 
   return (
     <div className="p-4 sm:p-10">
-      <Link to="/organizer/events" className="text-accent text-sm">← Back to my events</Link>
+      <Link to="/organizer/events" className="text-text underline text-sm">← Back to my events</Link>
 
       <div className="flex flex-wrap justify-between items-end gap-3 mt-4 mb-5">
         <div>

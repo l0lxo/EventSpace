@@ -64,7 +64,7 @@ const BookingAction = ({ event, onBooked, onCancelled }) => {
   if (!currentUser) {
     return (
       <p className="text-sm text-text-muted">
-        <Link to="/login" className="text-accent">Log in</Link> as a student to book a seat.
+        <Link to="/login" className="text-text underline">Log in</Link> as a student to book a seat.
       </p>
     );
   }

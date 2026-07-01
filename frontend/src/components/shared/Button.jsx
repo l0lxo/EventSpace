@@ -1,10 +1,10 @@
 const VARIANT_STYLES = {
-  primary: 'bg-accent text-white border border-accent hover:bg-accent-hover',
+  primary: 'bg-accent text-on-accent border border-accent hover:bg-accent-hover',
   secondary: 'bg-white text-text border border-border hover:bg-surface',
   danger: 'bg-white text-danger border border-danger hover:bg-danger-bg',
   success: 'bg-white text-success border border-success hover:bg-success-bg',
   warning: 'bg-white text-warning border border-warning hover:bg-warning-bg',
-  ghost: 'bg-transparent text-accent border border-transparent hover:bg-surface',
+  ghost: 'bg-transparent text-text border border-transparent hover:bg-surface',
 };
 
 const SIZE_STYLES = {

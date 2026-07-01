@@ -63,18 +63,58 @@ const sendModificationRequestedEmail = async (organizerEmail, eventTitle, feedba
   await sendEmail(organizerEmail, `Changes requested: ${eventTitle}`, html);
 };
 
+const sendEventUpdatedEmail = async (studentEmail, eventTitle) => {
+  const html = wrapEmail(`
+    <h2 style="color:#003366; margin-top:0;">Event details updated</h2>
+    <p style="font-size:15px; color:#333333; line-height:1.5;">
+      The details for <strong>"${eventTitle}"</strong> have been updated by the
+      organizer. Please check the event in the app for the latest date, time,
+      and location — your booking is still confirmed.
+    </p>
+    ${button('View Event', `${FRONTEND_URL}/events`)}
+  `);
+
+  await sendEmail(studentEmail, `Updated: ${eventTitle}`, html);
+};
+
 const sendEventCancelledEmail = async (studentEmail, eventTitle) => {
   const html = wrapEmail(`
     <h2 style="color:#cf222e; margin-top:0;">Event cancelled</h2>
     <p style="font-size:15px; color:#333333; line-height:1.5;">
       We're sorry to let you know that <strong>"${eventTitle}"</strong> has been
-      cancelled by the organizer. Any booking you held for this event has
-      been automatically cancelled — no action is needed on your part.
+      cancelled. Any booking you held for this event has been automatically
+      cancelled — no action is needed on your part.
     </p>
     ${button('Browse Other Events', `${FRONTEND_URL}/events`)}
   `);
 
   await sendEmail(studentEmail, `Cancelled: ${eventTitle}`, html);
+};
+
+const sendEventCancelledByAdminEmail = async (organizerEmail, eventTitle, reason) => {
+  const reasonBlock = reason
+    ? `
+      <div style="background-color:#fff1f0; border-left:4px solid #cf222e; padding:12px 16px; margin:16px 0;">
+        <p style="margin:0; font-size:14px; color:#5c1a1a;"><strong>Reason:</strong></p>
+        <p style="margin:8px 0 0; font-size:14px; color:#5c1a1a;">${reason}</p>
+      </div>
+    `
+    : '';
+
+  const html = wrapEmail(`
+    <h2 style="color:#cf222e; margin-top:0;">Your event has been cancelled</h2>
+    <p style="font-size:15px; color:#333333; line-height:1.5;">
+      <strong>"${eventTitle}"</strong> has been cancelled by an administrator.
+      All students with a confirmed booking have already been notified.
+    </p>
+    ${reasonBlock}
+    <p style="font-size:14px; color:#333333; line-height:1.5;">
+      If you have questions about this decision, please contact an administrator.
+    </p>
+    ${button('View Your Events', `${FRONTEND_URL}/organizer/events`)}
+  `);
+
+  await sendEmail(organizerEmail, `Cancelled: ${eventTitle}`, html);
 };
 
 const sendBookingConfirmedEmail = async (
@@ -177,7 +217,9 @@ module.exports = {
   sendEventApprovedEmail,
   sendEventRejectedEmail,
   sendModificationRequestedEmail,
+  sendEventUpdatedEmail,
   sendEventCancelledEmail,
+  sendEventCancelledByAdminEmail,
   sendBookingConfirmedEmail,
   sendBookingCancelledEmail,
   sendCapacityFullEmail,

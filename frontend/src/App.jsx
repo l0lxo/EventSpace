@@ -29,13 +29,13 @@ function App() {
         <SocketProvider>
           <NotificationProvider>
             <Routes>
-              {/* Landing, login, and register are full-bleed pages outside the app shell */}
-              <Route path="/" element={<Landing />} />
+              {/* Login and register are full-bleed pages outside the app shell */}
               <Route path="login" element={<Login />} />
               <Route path="register" element={<Register />} />
 
               <Route element={<RootLayout />}>
                 {/* Public */}
+                <Route index element={<Landing />} />
                 <Route path="events" element={<EventsBrowse />} />
                 <Route path="events/:id" element={<EventDetail />} />
                 <Route path="unauthorized" element={<Unauthorized />} />

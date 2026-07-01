@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
@@ -6,6 +8,7 @@ const User = require('../models/User');
 const Event = require('../models/Event');
 const Booking = require('../models/Booking');
 const { protect, authorize } = require('../middleware/auth');
+const cancelEventAndNotify = require('../utils/cancelEvent');
 
 router.use(protect, authorize('admin'));
 
@@ -287,13 +290,17 @@ router.patch(
     }
 
     try {
-      const event = await Event.findById(req.params.id);
+      const event = await Event.findById(req.params.id).populate('createdBy', 'name email');
 
       if (!event) {
         return res.status(404).json({ message: 'Event not found' });
       }
 
       const { action, reason } = req.body;
+
+      if (action === 'force_cancel' && event.status === 'cancelled') {
+        return res.status(400).json({ message: 'This event has already been cancelled' });
+      }
 
       if (action === 'flag') {
         event.isFlagged = true;
@@ -307,14 +314,20 @@ router.patch(
 
       await event.save();
 
-      // If force-cancelling, notify the real-time room same as the
-      // organizer-initiated cancellation in routes/events.js
+      // Same fan-out (attendees + organizer notified, real-time room updated)
+      // as the organizer-initiated path in routes/events.js — wrapped
+      // independently so a notification failure never undoes the cancellation
       if (action === 'force_cancel') {
-        const io = req.app.get('io');
-        io.to(`room:${event._id}`).emit('event_status_changed', {
-          eventId: event._id,
-          status: 'cancelled',
-        });
+        try {
+          await cancelEventAndNotify({
+            event,
+            io: req.app.get('io'),
+            cancelledByAdmin: true,
+            reason,
+          });
+        } catch (notifyErr) {
+          console.error('Failed to notify after force-cancelling event:', notifyErr);
+        }
       }
 
       res.status(200).json({ event: event.toJSON() });
@@ -327,5 +340,50 @@ router.patch(
     }
   }
 );
+
+// DELETE /api/admin/events/:id — Admin. Permanently deletes an event, even one
+// with active bookings — unlike the soft-cancel endpoints elsewhere in this
+// app, this removes the Event document (and its Booking documents) entirely.
+// Notifies every affected student and the organizer first, exactly like an
+// admin-initiated cancellation, since that information would otherwise be
+// lost once the records are gone.
+router.delete('/events/:id', async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id).populate('createdBy', 'name email');
+
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    // notify before anything is removed — cancelEventAndNotify reads confirmed
+    // bookings off this event, which won't exist once they're deleted below
+    try {
+      await cancelEventAndNotify({
+        event,
+        io: req.app.get('io'),
+        cancelledByAdmin: true,
+        reason: req.body.reason,
+      });
+    } catch (notifyErr) {
+      console.error('Failed to notify before deleting event:', notifyErr);
+    }
+
+    await Booking.deleteMany({ event: event._id });
+
+    if (event.posterUrl) {
+      fs.unlink(path.join(__dirname, '..', event.posterUrl), () => {});
+    }
+
+    await Event.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({ message: 'Event deleted successfully' });
+  } catch (err) {
+    if (err.name === 'CastError') {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    console.error('Delete event error:', err);
+    res.status(500).json({ message: 'Server error deleting event' });
+  }
+});
 
 module.exports = router;

@@ -9,7 +9,8 @@ import SkeletonCard from '../../components/shared/SkeletonCard';
 import StatusBadge from '../../components/shared/StatusBadge';
 import CapacityBar from '../../components/events/CapacityBar';
 
-const EDITABLE_STATUSES = ['pending', 'modification_requested'];
+const EDITABLE_STATUSES = ['pending', 'modification_requested', 'approved'];
+const CANCELLABLE_STATUSES = ['pending', 'approved', 'modification_requested'];
 
 const MyEventRow = ({ event, onCancelled }) => {
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -65,20 +66,24 @@ const MyEventRow = ({ event, onCancelled }) => {
 
       <div className="flex flex-wrap gap-3 items-center mt-3">
         {EDITABLE_STATUSES.includes(event.status) && (
-          <Link to={`/organizer/events/${event.id}/edit`} className="text-accent text-sm">Edit</Link>
+          <Link to={`/organizer/events/${event.id}/edit`} className="text-text text-sm">Edit</Link>
         )}
-        <Link to={`/organizer/events/${event.id}/participants`} className="text-accent text-sm">
+        <Link to={`/organizer/events/${event.id}/participants`} className="text-text text-sm">
           Participants
         </Link>
 
-        {event.status === 'pending' && !confirmingCancel && (
+        {CANCELLABLE_STATUSES.includes(event.status) && !confirmingCancel && (
           <Button variant="danger" size="sm" onClick={() => setConfirmingCancel(true)}>
             Cancel event
           </Button>
         )}
-        {event.status === 'pending' && confirmingCancel && (
+        {CANCELLABLE_STATUSES.includes(event.status) && confirmingCancel && (
           <span className="flex flex-wrap gap-2 items-center">
-            <span className="text-sm text-text">Cancel this event?</span>
+            <span className="text-sm text-text">
+              Cancel this event?
+              {event.currentBookings > 0 &&
+                ` This will notify all ${event.currentBookings} attendee${event.currentBookings === 1 ? '' : 's'}.`}
+            </span>
             <Button variant="danger" size="sm" isLoading={isSubmitting} onClick={handleCancel}>
               Yes, cancel
             </Button>

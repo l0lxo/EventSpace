@@ -20,7 +20,7 @@ const NotificationBell = () => {
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] px-1 text-[10px] leading-4 text-center font-mono text-accent bg-white rounded-full">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] px-1 text-[10px] leading-4 text-center font-mono text-text bg-white rounded-full">
             {unreadCount}
           </span>
         )}
@@ -34,7 +34,7 @@ const NotificationBell = () => {
             <div className="flex justify-between items-center px-4 py-2 border-b border-border">
               <span className="text-sm font-medium text-text">Notifications</span>
               {unreadCount > 0 && (
-                <button type="button" onClick={markAllRead} className="text-xs text-accent">
+                <button type="button" onClick={markAllRead} className="text-xs text-text underline">
                   Mark all read
                 </button>
               )}
@@ -63,7 +63,7 @@ const NotificationBell = () => {
                     {n.relatedEvent && (
                       <Link
                         to={`/events/${n.relatedEvent.id}`}
-                        className="text-xs text-accent mt-1 inline-block"
+                        className="text-xs text-text underline mt-1 inline-block"
                         onClick={() => setIsOpen(false)}
                       >
                         View event

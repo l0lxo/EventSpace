@@ -39,10 +39,10 @@ const Register = () => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen">
-      <AuthBackdrop className="h-[200px] md:h-auto md:w-1/2" />
-
-      <div className="md:w-1/2 flex items-center justify-center p-4 sm:p-10 bg-white">
+    <AuthBackdrop className="min-h-screen">
+      <div className="h-full flex items-center justify-center p-4 sm:p-10">
+        <div className="w-full max-w-sm">
+          <Link to="/" className="text-sm text-text underline block mb-3">← Go back home</Link>
         <Card className="w-full max-w-sm">
           <h1 className="font-display text-2xl text-text mb-5">Register</h1>
 
@@ -106,11 +106,12 @@ const Register = () => {
 
           <p className="text-sm text-text-muted mt-4">
             Already have an account?{' '}
-            <Link to="/login" className="text-accent">Log in</Link>
+            <Link to="/login" className="text-text underline">Log in</Link>
           </p>
         </Card>
+        </div>
       </div>
-    </div>
+    </AuthBackdrop>
   );
 };
 

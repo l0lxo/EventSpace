@@ -15,6 +15,7 @@ const EventDetail = () => {
   const [pulseTick, setPulseTick] = useState(0);
   // derive loading from whether the id changed since the last successful fetch
   const [loadedFor, setLoadedFor] = useState(null);
+  const [refetchKey, setRefetchKey] = useState(0);
   const isLoading = loadedFor !== id;
 
   useEffect(() => {
@@ -38,7 +39,7 @@ const EventDetail = () => {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, refetchKey]);
 
   // Live updates for anyone viewing this page — including other students'
   // bookings/cancellations and an admin force-cancelling mid-visit.
@@ -55,13 +56,20 @@ const EventDetail = () => {
       if (payload.eventId !== id) return;
       setEvent((prev) => (prev ? { ...prev, status: payload.status } : prev));
     };
+    const handleDetailsUpdated = (payload) => {
+      if (payload.eventId !== id) return;
+      setLoadedFor(null);
+      setRefetchKey((k) => k + 1);
+    };
 
     socket.on('capacity_updated', handleCapacityUpdated);
     socket.on('event_status_changed', handleStatusChanged);
+    socket.on('event_details_updated', handleDetailsUpdated);
 
     return () => {
       socket.off('capacity_updated', handleCapacityUpdated);
       socket.off('event_status_changed', handleStatusChanged);
+      socket.off('event_details_updated', handleDetailsUpdated);
     };
   }, [socket, id]);
 
@@ -73,7 +81,7 @@ const EventDetail = () => {
     return (
       <div className="p-4 sm:p-10">
         <p className="text-danger">{error || 'Event not found.'}</p>
-        <Link to="/events" className="text-accent text-sm">← Back to events</Link>
+        <Link to="/events" className="text-text underline text-sm">← Back to events</Link>
       </div>
     );
   }
@@ -82,7 +90,7 @@ const EventDetail = () => {
 
   return (
     <div className="p-4 sm:p-10">
-      <Link to="/events" className="text-accent text-sm">← Back to events</Link>
+      <Link to="/events" className="text-text underline text-sm">← Back to events</Link>
 
       <Card className="max-w-2xl mt-4">
         {event.posterUrl && (

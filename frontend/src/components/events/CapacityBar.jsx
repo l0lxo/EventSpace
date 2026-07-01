@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-// stays navy even when full — success/danger/warning is reserved for status, not capacity
+// stays black even when full — success/danger/warning is reserved for status, not capacity
 const CapacityBar = ({ capacity, currentBookings, pulseTick = 0 }) => {
   const seatsRemaining = Math.max(capacity - currentBookings, 0);
   const percentFilled = capacity > 0 ? Math.min((currentBookings / capacity) * 100, 100) : 0;
@@ -22,7 +22,7 @@ const CapacityBar = ({ capacity, currentBookings, pulseTick = 0 }) => {
     <div>
       <div className="h-1.5 border border-border rounded-sm bg-surface overflow-hidden">
         <div
-          className="h-full bg-accent"
+          className="h-full bg-text"
           style={{ width: `${percentFilled}%` }}
         />
       </div>

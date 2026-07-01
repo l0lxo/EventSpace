@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { format, addDays } from 'date-fns';
 import { EVENT_CATEGORIES } from '../../utils/constants';
@@ -12,6 +12,7 @@ const ADVANCE_NOTICE_DAYS = 14;
 const EventForm = ({ defaultValues, onSubmit, submitLabel, enforceAdvanceNotice }) => {
   const [serverError, setServerError] = useState('');
   const [posterFile, setPosterFile] = useState(null);
+  const fileInputRef = useRef(null);
   const [posterPreview, setPosterPreview] = useState(getPosterUrl(defaultValues?.posterUrl));
   const {
     register,
@@ -88,11 +89,24 @@ const EventForm = ({ defaultValues, onSubmit, submitLabel, enforceAdvanceNotice 
             className="w-full max-w-xs h-40 object-cover rounded-sm border border-border mb-2"
           />
         )}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3 py-1.5 text-sm font-medium bg-white border border-border rounded-sm text-text hover:bg-surface transition-colors"
+          >
+            Choose file
+          </button>
+          <span className="text-sm text-text-muted truncate">
+            {posterFile ? posterFile.name : defaultValues?.posterUrl ? 'Using current poster' : 'No file chosen'}
+          </span>
+        </div>
         <input
+          ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp"
           onChange={handlePosterChange}
-          className="block w-full text-sm text-text-muted"
+          className="sr-only"
         />
       </div>
 
