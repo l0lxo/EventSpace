@@ -20,7 +20,7 @@ const EventDetail = () => {
 
   useEffect(() => {
     let active = true;
-
+    
     api
       .get(`/events/${id}`)
       .then(({ data }) => {

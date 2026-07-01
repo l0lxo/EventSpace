@@ -7,6 +7,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Event = require('../models/Event');
 const Booking = require('../models/Booking');
+const Payment = require('../models/Payment');
 const { protect, authorize } = require('../middleware/auth');
 const cancelEventAndNotify = require('../utils/cancelEvent');
 
@@ -14,6 +15,20 @@ router.use(protect, authorize('admin'));
 
 router.get('/analytics', async (req, res) => {
   try {
+    const { startDate, endDate } = req.query;
+
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const rangeEnd = endDate ? new Date(endDate) : new Date();
+    const rangeStart = (() => {
+      if (startDate) return new Date(startDate);
+      const d = new Date();
+      d.setMonth(d.getMonth() - 5);
+      d.setDate(1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    })();
+
     const [
       totalEvents,
       totalBookings,
@@ -27,6 +42,7 @@ router.get('/analytics', async (req, res) => {
       adminCount,
       upcomingEventsCount,
       categoryAggregation,
+      eventsOverTimeRaw,
     ] = await Promise.all([
       Event.countDocuments({}),
       Booking.countDocuments({ status: 'confirmed' }),
@@ -59,7 +75,31 @@ router.get('/analytics', async (req, res) => {
           },
         },
       ]),
+
+      Event.aggregate([
+        { $match: { status: 'approved', date: { $gte: rangeStart, $lte: rangeEnd } } },
+        {
+          $group: {
+            _id: { year: { $year: '$date' }, month: { $month: '$date' } },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+      ]),
     ]);
+
+    // Fill calendar gaps so months with zero events appear as 0, not missing
+    const eventsOverTime = [];
+    const cursor = new Date(rangeStart);
+    cursor.setDate(1);
+    cursor.setHours(0, 0, 0, 0);
+    while (cursor <= rangeEnd) {
+      const year = cursor.getFullYear();
+      const month = cursor.getMonth() + 1;
+      const found = eventsOverTimeRaw.find((e) => e._id.year === year && e._id.month === month);
+      eventsOverTime.push({ month: `${MONTH_NAMES[cursor.getMonth()]} ${year}`, count: found ? found.count : 0 });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
 
     const averageBookingsPerEvent =
       approvedCount > 0 ? Number((totalBookings / approvedCount).toFixed(1)) : 0;
@@ -82,10 +122,136 @@ router.get('/analytics', async (req, res) => {
       popularCategories: categoryAggregation,
       upcomingEventsCount,
       averageBookingsPerEvent,
+      eventsOverTime,
     });
   } catch (err) {
     console.error('Get analytics error:', err);
     res.status(500).json({ message: 'Server error fetching analytics' });
+  }
+});
+
+// GET /api/admin/financials
+router.get('/financials', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    const rangeEnd = endDate ? new Date(endDate) : new Date();
+    const rangeStart = (() => {
+      if (startDate) return new Date(startDate);
+      const d = new Date();
+      d.setMonth(d.getMonth() - 5);
+      d.setDate(1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    })();
+
+    const [
+      totalRevenueRaw,
+      totalFundingRaw,
+      revenueOverTimeRaw,
+      fundingOverTimeRaw,
+      revenueByCategoryRaw,
+      fundingByCategoryRaw,
+    ] = await Promise.all([
+      Payment.aggregate([
+        { $match: { status: 'success' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      Event.aggregate([
+        { $match: { status: 'approved', 'fundingRequest.requested': true } },
+        { $group: { _id: null, total: { $sum: '$fundingRequest.budget' } } },
+      ]),
+      Payment.aggregate([
+        { $match: { status: 'success', paidAt: { $gte: rangeStart, $lte: rangeEnd } } },
+        {
+          $group: {
+            _id: { year: { $year: '$paidAt' }, month: { $month: '$paidAt' } },
+            amount: { $sum: '$amount' },
+          },
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+      ]),
+      Event.aggregate([
+        {
+          $match: {
+            status: 'approved',
+            'fundingRequest.requested': true,
+            date: { $gte: rangeStart, $lte: rangeEnd },
+          },
+        },
+        {
+          $group: {
+            _id: { year: { $year: '$date' }, month: { $month: '$date' } },
+            amount: { $sum: '$fundingRequest.budget' },
+          },
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+      ]),
+      Payment.aggregate([
+        { $match: { status: 'success' } },
+        { $lookup: { from: 'bookings', localField: 'booking', foreignField: '_id', as: 'booking' } },
+        { $unwind: '$booking' },
+        { $lookup: { from: 'events', localField: 'booking.event', foreignField: '_id', as: 'event' } },
+        { $unwind: '$event' },
+        {
+          $group: {
+            _id: '$event.category',
+            totalRevenue: { $sum: '$amount' },
+            eventCount: { $addToSet: '$event._id' },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            category: '$_id',
+            totalRevenue: 1,
+            eventCount: { $size: '$eventCount' },
+          },
+        },
+        { $sort: { totalRevenue: -1 } },
+      ]),
+      Event.aggregate([
+        { $match: { status: 'approved', 'fundingRequest.requested': true } },
+        {
+          $group: {
+            _id: '$category',
+            totalFunding: { $sum: '$fundingRequest.budget' },
+            eventCount: { $sum: 1 },
+          },
+        },
+        { $project: { _id: 0, category: '$_id', totalFunding: 1, eventCount: 1 } },
+        { $sort: { totalFunding: -1 } },
+      ]),
+    ]);
+
+    const fillMonths = (raw, key) => {
+      const result = [];
+      const cursor = new Date(rangeStart);
+      cursor.setDate(1);
+      cursor.setHours(0, 0, 0, 0);
+      while (cursor <= rangeEnd) {
+        const year = cursor.getFullYear();
+        const month = cursor.getMonth() + 1;
+        const found = raw.find((e) => e._id.year === year && e._id.month === month);
+        result.push({ month: `${MONTH_NAMES[cursor.getMonth()]} ${year}`, [key]: found ? found.amount : 0 });
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+      return result;
+    };
+
+    res.status(200).json({
+      totalRevenue: totalRevenueRaw[0]?.total ?? 0,
+      totalFunding: totalFundingRaw[0]?.total ?? 0,
+      netPosition: (totalRevenueRaw[0]?.total ?? 0) - (totalFundingRaw[0]?.total ?? 0),
+      revenueOverTime: fillMonths(revenueOverTimeRaw, 'amount'),
+      fundingOverTime: fillMonths(fundingOverTimeRaw, 'amount'),
+      revenueByCategory: revenueByCategoryRaw,
+      fundingByCategory: fundingByCategoryRaw,
+    });
+  } catch (err) {
+    console.error('Get financials error:', err);
+    res.status(500).json({ message: 'Server error fetching financials' });
   }
 });
 

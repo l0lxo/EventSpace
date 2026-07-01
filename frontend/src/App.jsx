@@ -19,6 +19,7 @@ import Dashboard from './pages/admin/Dashboard';
 import PendingQueue from './pages/admin/PendingQueue';
 import UserManagement from './pages/admin/UserManagement';
 import Reports from './pages/admin/Reports';
+import PaymentCallback from './pages/PaymentCallback';
 import NotFound from './pages/common/NotFound';
 import Unauthorized from './pages/common/Unauthorized';
 
@@ -43,6 +44,7 @@ function App() {
                 {/* Student-only */}
                 <Route element={<ProtectedRoute roles={['student']} />}>
                   <Route path="my-bookings" element={<MyBookings />} />
+                  <Route path="booking/payment-callback" element={<PaymentCallback />} />
                 </Route>
 
                 {/* Organizer-only */}

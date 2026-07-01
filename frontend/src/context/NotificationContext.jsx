@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../hooks/useSocket';
@@ -9,9 +9,12 @@ export const NotificationProvider = ({ children }) => {
   const socket = useSocket();
   const [notifications, setNotifications] = useState([]);
 
-  // reset on identity change, done during render so we don't setState synchronously in an effect
   const currentUserId = currentUser?.id ?? null;
   const [prevUserId, setPrevUserId] = useState(currentUserId);
+
+  // React-recommended pattern: setState during render resets derived state without
+  // a useEffect, avoiding cascading renders. React bails out immediately and
+  // re-renders this component once more before committing — children are unaffected.
   if (currentUserId !== prevUserId) {
     setPrevUserId(currentUserId);
     setNotifications([]);
@@ -44,20 +47,27 @@ export const NotificationProvider = ({ children }) => {
     return () => socket.off('new_notification', handleNewNotification);
   }, [socket]);
 
-  const markRead = (id) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+  const markRead = useCallback((id) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
     api.patch(`/notifications/${id}/read`).catch(() => {});
-  };
+  }, []);
 
-  const markAllRead = () => {
+  const markAllRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     api.patch('/notifications/read-all').catch(() => {});
-  };
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  const contextValue = useMemo(
+    () => ({ notifications, unreadCount, markRead, markAllRead }),
+    [notifications, unreadCount, markRead, markAllRead]
+  );
+
   return (
-    <NotificationContext.Provider value={{ notifications, unreadCount, markRead, markAllRead }}>
+    <NotificationContext.Provider value={contextValue}>
       {children}
     </NotificationContext.Provider>
   );

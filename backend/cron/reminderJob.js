@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Booking = require('../models/Booking');
 const Event = require('../models/Event');
+const Payment = require('../models/Payment');
 const notifyUser = require('../utils/notify');
 const { sendEventReminderEmail } = require('../utils/email');
 
@@ -89,12 +90,46 @@ const getEventDateTime = (event) => {
   return dt;
 };
 
+// Runs every 5 minutes. Releases seats held by paid bookings whose 15-minute
+// payment window has expired without a completed payment.
+const runPaymentCleanup = async () => {
+  try {
+    const expiredBookings = await Booking.find({
+      status: 'pending',
+      paymentStatus: 'pending',
+      paymentExpiry: { $lt: new Date() },
+    });
+
+    for (const booking of expiredBookings) {
+      booking.status = 'cancelled';
+      booking.paymentStatus = 'failed';
+      booking.cancellationDate = new Date();
+      await booking.save();
+
+      await Event.findByIdAndUpdate(booking.event, { $inc: { currentBookings: -1 } });
+      await Payment.findOneAndUpdate(
+        { booking: booking._id, status: 'pending' },
+        { status: 'abandoned' }
+      );
+
+      console.log(`[Payment Cleanup] Released expired booking ${booking._id}`);
+    }
+  } catch (err) {
+    console.error('[Payment Cleanup] Error:', err);
+  }
+};
+
 const registerReminderCron = (io) => {
   cron.schedule('0 * * * *', () => {
     runReminderCheck(io);
   });
 
+  cron.schedule('*/5 * * * *', () => {
+    runPaymentCleanup();
+  });
+
   console.log('[Reminder Cron] Scheduled — will run at the top of every hour.');
+  console.log('[Payment Cleanup] Scheduled — will run every 5 minutes.');
 };
 
 module.exports = registerReminderCron;

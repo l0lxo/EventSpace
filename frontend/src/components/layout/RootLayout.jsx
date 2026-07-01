@@ -60,7 +60,7 @@ const RootLayout = () => {
                 <span className="hidden sm:inline text-on-accent/70">
                   {currentUser.name} ({currentUser.role})
                 </span>
-                <button onClick={handleLogout} className="text-on-accent hover:opacity-80 transition-opacity">
+                <button type="button" onClick={handleLogout} className="text-on-accent hover:opacity-80 transition-opacity">
                   Log out
                 </button>
               </>
@@ -95,6 +95,7 @@ const RootLayout = () => {
                 <>
                   <span className="text-on-accent/70">{currentUser.name} ({currentUser.role})</span>
                   <button
+                  type="button"
                     onClick={() => { closeMenu(); handleLogout(); }}
                     className="text-on-accent text-left hover:opacity-80 transition-opacity"
                   >
