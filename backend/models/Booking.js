@@ -23,10 +23,24 @@ const bookingSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['confirmed', 'cancelled'],
+        values: ['pending', 'confirmed', 'cancelled'],
         message: '{VALUE} is not a valid booking status',
       },
       default: 'confirmed',
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: ['not_required', 'pending', 'paid', 'failed'],
+      default: 'not_required',
+    },
+
+    // Deadline after which a pending paid booking is considered expired and
+    // the held seat is released by the payment cleanup cron. null for free
+    // events and for bookings that have completed payment.
+    paymentExpiry: {
+      type: Date,
+      default: null,
     },
 
     // Set when status changes to 'cancelled', so the cancellation-window
@@ -60,6 +74,7 @@ bookingSchema.index({ event: 1 });
 bookingSchema.index({ student: 1 });
 
 bookingSchema.index({ status: 1, reminderSent: 1 }); // for the hourly reminder cron query
+bookingSchema.index({ paymentStatus: 1, paymentExpiry: 1 }); // for the payment expiry cleanup cron
 
 bookingSchema.set('toJSON', {
   virtuals: true,

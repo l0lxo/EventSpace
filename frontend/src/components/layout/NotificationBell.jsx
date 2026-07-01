@@ -62,7 +62,7 @@ const NotificationBell = () => {
                     </button>
                     {n.relatedEvent && (
                       <Link
-                        to={`/events/${n.relatedEvent.id}`}
+                        to={`/events/${n.relatedEvent.id ?? n.relatedEvent}`}
                         className="text-xs text-text underline mt-1 inline-block"
                         onClick={() => setIsOpen(false)}
                       >

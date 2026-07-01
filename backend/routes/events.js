@@ -78,6 +78,13 @@ const createEventValidation = [
 
   body('externalGuests.reason').optional().trim()
     .isLength({ max: 1000 }).withMessage('Reason cannot exceed 1000 characters'),
+
+  body('isPaid').optional().isBoolean().withMessage('isPaid must be true or false'),
+
+  body('price')
+    .if(body('isPaid').equals('true'))
+    .notEmpty().withMessage('Price is required for paid events')
+    .isFloat({ min: 0.01 }).withMessage('Price must be greater than 0'),
 ];
 
 const reviewValidation = [
@@ -225,8 +232,10 @@ router.post(
     try {
       const {
         title, description, date, time, location, capacity, category,
-        fundingRequest, externalGuests,
+        fundingRequest, externalGuests, isPaid, price,
       } = req.body;
+
+      const isPaidBool = isPaid === true || isPaid === 'true';
 
       const event = await Event.create({
         title,
@@ -236,6 +245,8 @@ router.post(
         location,
         capacity,
         category,
+        isPaid: isPaidBool,
+        price: isPaidBool ? Number(price) : 0,
         createdBy: req.user._id,
         posterUrl: req.file ? `/uploads/posters/${req.file.filename}` : null,
         fundingRequest: fundingRequest?.requested

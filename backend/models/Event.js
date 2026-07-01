@@ -160,6 +160,24 @@ const eventSchema = new mongoose.Schema(
       default: null,
     },
 
+    isPaid: {
+      type: Boolean,
+      default: false,
+    },
+
+    price: {
+      type: Number,
+      default: 0,
+      min: [0, 'Price cannot be negative'],
+      validate: {
+        validator: function (value) {
+          if (this.isPaid && value <= 0) return false;
+          return true;
+        },
+        message: 'A paid event must have a price greater than 0',
+      },
+    },
+
     // Admin moderation flag (separate from status — a flagged event can
     // still be 'approved' while under review for content concerns)
     isFlagged: {

@@ -35,16 +35,25 @@ const BookingAction = ({ event, onBooked, onCancelled }) => {
   }, [isStudent, event.id]);
 
   const handleBook = () => {
+    console.log('handleBook fired, event.id:', event.id);
+  console.trace('handleBook call stack');
     setIsSubmitting(true);
     setError('');
     api
       .post('/bookings', { eventId: event.id })
       .then(({ data }) => {
+        if (data.requiresPayment) {
+          window.location.href = data.paymentUrl;
+          return; // stop here — nothing below should run on the paid path
+        }
         setMyBooking(data.booking);
         onBooked(data.seatsRemaining);
+        setIsSubmitting(false);
       })
-      .catch((err) => setError(err.response?.data?.message ?? 'Could not book this event.'))
-      .finally(() => setIsSubmitting(false));
+      .catch((err) => {
+        setError(err.response?.data?.message ?? 'Could not book this event.');
+        setIsSubmitting(false);
+      });
   };
 
   const handleCancel = () => {
@@ -121,9 +130,16 @@ const BookingAction = ({ event, onBooked, onCancelled }) => {
 
   return (
     <div>
+      {event.isPaid && (
+        <p className="text-sm font-mono text-text mb-3">
+          Ticket: KES {Number(event.price).toLocaleString()}
+        </p>
+      )}
       {error && <p className="text-sm text-danger mb-2">{error}</p>}
       <Button variant="success" isLoading={isSubmitting} onClick={handleBook}>
-        Book a seat
+        {event.isPaid
+          ? `Book & Pay — KES ${Number(event.price).toLocaleString()}`
+          : 'Book a seat'}
       </Button>
     </div>
   );

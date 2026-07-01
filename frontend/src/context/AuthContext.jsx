@@ -7,6 +7,8 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log('AUTH PROVIDER MOUNTED — full remount happening');
+  console.trace('mount trace');
     // a leftover token means we can restore the session instead of bouncing to /login
     const restoreSession = async () => {
       if (!getToken()) {

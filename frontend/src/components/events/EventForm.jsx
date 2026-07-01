@@ -23,6 +23,7 @@ const EventForm = ({ defaultValues, onSubmit, submitLabel, enforceAdvanceNotice 
 
   const fundingRequested = watch('fundingRequested');
   const guestsRequested = watch('guestsRequested');
+  const isPaid = watch('isPaid');
 
   // 14-day rule only applies to new events, not edits — see Event.js's isNew date validator
   const minDate = enforceAdvanceNotice
@@ -65,6 +66,10 @@ const EventForm = ({ defaultValues, onSubmit, submitLabel, enforceAdvanceNotice 
           : { requested: false }
       )
     );
+    formData.append('isPaid', values.isPaid ? 'true' : 'false');
+    if (values.isPaid && values.price) {
+      formData.append('price', values.price);
+    }
     if (posterFile) {
       formData.append('poster', posterFile);
     }
@@ -224,6 +229,29 @@ const EventForm = ({ defaultValues, onSubmit, submitLabel, enforceAdvanceNotice 
                 <p className="mt-1 text-xs text-danger">{errors.fundingJustification.message}</p>
               )}
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="border border-border rounded-md p-4">
+        <label className="flex items-center gap-2 text-sm text-text">
+          <input type="checkbox" className="h-4 w-4 accent-accent" {...register('isPaid')} />
+          This is a paid event
+        </label>
+
+        {isPaid && (
+          <div className="mt-3">
+            <Input
+              label="Ticket price (KES)"
+              type="number"
+              min={1}
+              step="0.01"
+              error={errors.price?.message}
+              {...register('price', {
+                required: 'Price is required for paid events',
+                min: { value: 0.01, message: 'Price must be greater than 0' },
+              })}
+            />
           </div>
         )}
       </div>

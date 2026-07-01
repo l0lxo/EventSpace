@@ -6,10 +6,12 @@ const router = express.Router();
 const { Parser: CsvParser } = require('json2csv');
 
 const Booking = require('../models/Booking');
+const Payment = require('../models/Payment');
 const Event = require('../models/Event');
 const { protect, authorize } = require('../middleware/auth');
 const notifyUser = require('../utils/notify');
 const generateTicketImage = require('../utils/generateTicket');
+const { initializePayment } = require('../utils/paystack');
 const {
   sendBookingConfirmedEmail,
   sendBookingCancelledEmail,
@@ -114,15 +116,25 @@ router.post('/', protect, authorize('student'), async (req, res) => {
       return res.status(400).json({ message: 'This event has already taken place' });
     }
 
-    // friendly pre-check — the unique compound index on Booking backs this up at the DB level too
+    // friendly pre-checks — the unique compound index on Booking is the real guarantee
     const existingBooking = await Booking.findOne({
       student: req.user._id,
       event: eventId,
       status: 'confirmed',
     });
-
     if (existingBooking) {
       return res.status(409).json({ message: 'You already have a booking for this event' });
+    }
+
+    // Prevent starting a second payment while one is still in progress
+    const pendingBooking = await Booking.findOne({
+      student: req.user._id,
+      event: eventId,
+      status: 'pending',
+      paymentExpiry: { $gt: new Date() },
+    });
+    if (pendingBooking) {
+      return res.status(409).json({ message: 'You have a pending payment for this event. Complete or wait for it to expire.' });
     }
 
     // atomic: finds the event and increments currentBookings in one step, only if
@@ -140,12 +152,66 @@ router.post('/', protect, authorize('student'), async (req, res) => {
       return res.status(409).json({ message: 'This event is at full capacity' });
     }
 
+    // ── Paid event path ──────────────────────────────────────────────────────
+    if (event.isPaid) {
+      let booking;
+      try {
+        booking = await Booking.create({
+          student: req.user._id,
+          event: eventId,
+          status: 'pending',
+          paymentStatus: 'pending',
+          paymentExpiry: new Date(Date.now() + 15 * 60 * 1000), // 15-minute window
+        });
+
+        const reference = `EVT-${eventId}-${Date.now()}`;
+
+        await Payment.create({
+          booking: booking._id,
+          student: req.user._id,
+          event: eventId,
+          amount: event.price,
+          paystackReference: reference,
+        });
+
+        const paymentData = await initializePayment({
+          email: req.user.email,
+          amount: event.price,
+          reference,
+          metadata: {
+            bookingId: booking._id.toString(),
+            eventId: eventId.toString(),
+            studentId: req.user._id.toString(),
+          },
+        });
+
+        // Seat is held; confirmation email and ticket fire from the webhook only
+        return res.status(200).json({
+          requiresPayment: true,
+          paymentUrl: paymentData.authorizationUrl,
+          reference,
+          booking: formatBooking(booking),
+        });
+      } catch (paidErr) {
+        // Roll back seat hold and any partially-created documents
+        await Event.findByIdAndUpdate(eventId, { $inc: { currentBookings: -1 } });
+        if (booking?._id) {
+          await Booking.findByIdAndDelete(booking._id);
+          await Payment.deleteOne({ booking: booking._id });
+        }
+        console.error('Paid booking init error:', paidErr);
+        return res.status(500).json({ message: 'Could not initialise payment. Please try again.' });
+      }
+    }
+
+    // ── Free event path (unchanged) ──────────────────────────────────────────
     let booking;
     try {
       booking = await Booking.create({
         student: req.user._id,
         event: eventId,
         status: 'confirmed',
+        paymentStatus: 'not_required',
       });
     } catch (bookingErr) {
       // roll back the increment if booking creation fails, or currentBookings drifts out of sync
