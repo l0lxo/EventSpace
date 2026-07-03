@@ -35,8 +35,6 @@ const BookingAction = ({ event, onBooked, onCancelled }) => {
   }, [isStudent, event.id]);
 
   const handleBook = () => {
-    console.log('handleBook fired, event.id:', event.id);
-  console.trace('handleBook call stack');
     setIsSubmitting(true);
     setError('');
     api

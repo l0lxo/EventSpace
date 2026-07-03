@@ -315,6 +315,7 @@ router.put(
       const editableFields = [
         'title', 'description', 'date', 'time', 'location',
         'capacity', 'category', 'fundingRequest', 'externalGuests',
+        'isPaid', 'price',
       ];
 
       editableFields.forEach((field) => {

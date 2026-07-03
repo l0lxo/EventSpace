@@ -20,6 +20,8 @@ const toFormValues = (event) => ({
   guestsRequested: event.externalGuests?.requested ?? false,
   guestsReason: event.externalGuests?.reason ?? '',
   posterUrl: event.posterUrl ?? null,
+  isPaid: event.isPaid ?? false,
+  price: event.price ?? '',
 });
 
 const EditEvent = () => {
