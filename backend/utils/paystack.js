@@ -1,12 +1,15 @@
-const axios = require('axios');
+const axios = require("axios");
 
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
-const BASE_URL = 'https://api.paystack.co';
+const BASE_URL = "https://api.paystack.co";
 
-const headers = () => ({
-  Authorization: `Bearer ${PAYSTACK_SECRET}`,
-  'Content-Type': 'application/json',
-});
+const headers = () => {
+  console.log("Paystack key:", process.env.PAYSTACK_SECRET_KEY);
+  return {
+    Authorization: `Bearer ${PAYSTACK_SECRET}`,
+    "Content-Type": "application/json",
+  };
+};
 
 /**
  * Initialize a Paystack transaction.
@@ -25,9 +28,13 @@ const initializePayment = async ({ email, amount, reference, metadata }) => {
       metadata,
       callback_url: `${process.env.CLIENT_URL}/booking/payment-callback`,
     },
-    { headers: headers() }
+    { headers: headers() },
   );
-  const { authorization_url: authorizationUrl, access_code: accessCode, reference: ref } = response.data.data;
+  const {
+    authorization_url: authorizationUrl,
+    access_code: accessCode,
+    reference: ref,
+  } = response.data.data;
   return { authorizationUrl, accessCode, reference: ref };
 };
 
@@ -39,7 +46,7 @@ const initializePayment = async ({ email, amount, reference, metadata }) => {
 const verifyPayment = async (reference) => {
   const response = await axios.get(
     `${BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`,
-    { headers: headers() }
+    { headers: headers() },
   );
   return response.data.data;
 };
