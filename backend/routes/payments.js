@@ -12,13 +12,7 @@ const notifyUser = require('../utils/notify');
 const generateTicketImage = require('../utils/generateTicket');
 const { sendBookingConfirmedEmail, sendCapacityFullEmail } = require('../utils/email');
 
-// ── Webhook ──────────────────────────────────────────────────────────────────
-//
-// IMPORTANT: this route must be mounted in server.js BEFORE the global
-// express.json() middleware so that express.raw() can capture the raw body
-// buffer here. The HMAC-SHA512 signature check requires the exact byte
-// sequence Paystack sent — once express.json() has parsed it to an object,
-// the signature can no longer be computed correctly.
+
 
 router.post(
   '/webhook',
@@ -52,12 +46,10 @@ router.post(
   }
 );
 
-// ── Webhook helpers ───────────────────────────────────────────────────────────
 
 const handleSuccessfulPayment = async (data) => {
   const { reference } = data;
 
-  // Always verify independently — never trust the webhook payload alone
   const verification = await verifyPayment(reference);
   if (verification.status !== 'success') return;
 
@@ -83,8 +75,6 @@ const handleSuccessfulPayment = async (data) => {
   ]);
   if (!student || !event) return;
 
-  // global.io is set in server.js so the webhook handler (outside the normal
-  // Express request cycle) can emit socket events without req.app.get('io')
   const io = global.io;
 
   io.to(`room:${event._id}`).emit('capacity_updated', {
@@ -93,7 +83,6 @@ const handleSuccessfulPayment = async (data) => {
     seatsRemaining: event.capacity - event.currentBookings,
   });
 
-  // Ticket + confirmation email — same pattern as the free-event side effects
   let ticketAttachment;
   try {
     const ticketBuffer = await generateTicketImage({ booking, event, student });
@@ -181,9 +170,6 @@ const handleFailedPayment = async (data) => {
   }
 };
 
-// ── GET /api/payments/verify/:reference ──────────────────────────────────────
-// Called by the frontend after Paystack redirects back, to get the current
-// payment status before the webhook has necessarily fired.
 
 router.get('/verify/:reference', protect, authorize('student'), async (req, res) => {
   try {

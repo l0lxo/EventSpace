@@ -20,12 +20,9 @@ const paymentRoutes = require('./routes/payments');
 
 const app = express();
 
-// socket.io needs the raw HTTP server, so Express is wrapped in one rather than listening directly
 const httpServer = createServer(app);
 const io = initSocket(httpServer);
-app.set('io', io); // lets route handlers emit via req.app.get('io')
-// global.io makes io available in the payments webhook handler, which runs
-// outside the normal Express request cycle and can't use req.app.get('io')
+app.set('io', io); 
 global.io = io;
 
 app.use(helmet());
@@ -34,14 +31,11 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL,
     credentials: true,
-    // without this, cross-origin JS can't read Content-Disposition — needed for the CSV export filename
     exposedHeaders: ['Content-Disposition'],
   })
 );
 
-// served ahead of the rate limiter so image loads don't eat into the API quota;
-// CORP header overridden since helmet defaults it to same-origin, which would
-// block the frontend (different port) from loading these in an <img>
+
 app.use(
   '/uploads',
   express.static(path.join(__dirname, 'uploads'), {
@@ -52,11 +46,6 @@ app.use(
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
-
-// Mount payments BEFORE express.json() so the /webhook route can apply
-// express.raw() and receive the raw body buffer for HMAC signature verification.
-// If express.json() ran first it would consume the body stream and the raw
-// bytes needed for the signature check would be gone.
 app.use('/api/payments', paymentRoutes);
 
 app.use(express.json());
@@ -92,7 +81,6 @@ app.use('/api/events', eventRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
-// /api/payments is mounted above express.json() — see comment there
 
 app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.originalUrl} not found` });
