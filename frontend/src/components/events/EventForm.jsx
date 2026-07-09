@@ -25,7 +25,7 @@ const EventForm = ({ defaultValues, onSubmit, submitLabel, enforceAdvanceNotice 
   const guestsRequested = watch('guestsRequested');
   const isPaid = watch('isPaid');
 
-  // 14-day rule only applies to new events, not edits — see Event.js's isNew date validator
+  // 14-day rule only applies to new events, not edits  (see Event.js's isNew date validator)
   const minDate = enforceAdvanceNotice
     ? format(addDays(new Date(), ADVANCE_NOTICE_DAYS), 'yyyy-MM-dd')
     : undefined;

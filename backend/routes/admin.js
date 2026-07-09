@@ -311,7 +311,7 @@ router.get('/users', async (req, res) => {
     const filter = {};
     if (role) filter.role = role;
     if (search) {
-      // Search across both name and email — $or means "match either condition"
+      // Search across both name and email  ($or means "match either condition")
       filter.$or = [
         { name: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },

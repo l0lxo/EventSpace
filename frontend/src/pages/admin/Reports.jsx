@@ -5,6 +5,7 @@ import { EVENT_CATEGORIES } from '../../utils/constants';
 import Card from '../../components/shared/Card';
 import Input from '../../components/shared/Input';
 import Select from '../../components/shared/Select';
+import Button from '../../components/shared/Button';
 
 const buildRequestKey = (filters) => JSON.stringify(filters);
 
@@ -52,9 +53,37 @@ const Reports = () => {
 
   const updateFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
 
+  const handleExport = () => {
+    const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = ['Event', 'Date', 'Category', 'Capacity', 'Bookings', 'Cancellations', 'Fill Rate'];
+    const lines = rows.map((row) => [
+      escape(row.eventTitle),
+      escape(format(parseISO(row.date), 'MMM d, yyyy')),
+      escape(row.category),
+      row.capacity,
+      row.totalBookings,
+      row.cancellations,
+      escape(row.fillRate),
+    ].join(','));
+
+    const csv = [header.join(','), ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'participation-report.csv';
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="p-4 sm:p-10">
-      <h1 className="font-display text-2xl text-text mb-5">Participation Reports</h1>
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
+        <h1 className="font-display text-2xl text-text">Participation Reports</h1>
+        {!isLoading && !error && rows.length > 0 && (
+          <Button variant="secondary" onClick={handleExport}>Export CSV</Button>
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-3 items-end mb-6">
         <Input
