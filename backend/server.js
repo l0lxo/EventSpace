@@ -6,7 +6,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
 const { createServer } = require('http');
 const initSocket = require('./socket');
 const registerReminderCron = require('./cron/reminderJob');
@@ -51,23 +50,6 @@ app.use('/api/payments', paymentRoutes);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { message: 'Too many requests from this IP, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(globalLimiter);
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { message: 'Too many login attempts, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 app.get('/', (req, res) => {
   res.json({
     message: 'EventSpace API is running',
@@ -76,7 +58,7 @@ app.get('/', (req, res) => {
   });
 });
 
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/admin', adminRoutes);
